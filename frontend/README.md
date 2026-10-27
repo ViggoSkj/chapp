@@ -63,6 +63,6 @@ when requested from sentence practice.
 Run authentication and existing practice checks with a current Node runtime:
 
 ```sh
-node --test tests/auth.test.mjs tests/practice.test.mjs
+node --test tests/auth.test.mjs tests/request-id.test.mjs tests/practice.test.mjs
 pnpm build
 ```

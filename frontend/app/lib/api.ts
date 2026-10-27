@@ -1,5 +1,6 @@
 export class ApiError extends Error {
-  constructor(message: string, readonly status: number) { super(message); }
+  readonly status: number;
+  constructor(message: string, status: number) { super(message); this.status = status; }
 }
 
 export async function api<T>(path: string, body?: unknown): Promise<T> {
