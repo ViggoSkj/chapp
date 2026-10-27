@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   async rewrites() {
     const backend = process.env.CHAP_BACKEND_ORIGIN;
     if (!backend) return [];
