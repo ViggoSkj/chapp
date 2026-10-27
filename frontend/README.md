@@ -66,3 +66,10 @@ Run authentication and existing practice checks with a current Node runtime:
 node --test tests/auth.test.mjs tests/request-id.test.mjs tests/practice.test.mjs
 pnpm build
 ```
+
+## Learning UX requirements
+
+See [FRONTEND-REQUIREMENTS.md](FRONTEND-REQUIREMENTS.md) for the owner's requested
+answer-reveal states across all modes, character-meaning lookups after reveal,
+and a contextual question window in the lower-right corner. These are recorded
+requirements for future implementation.
