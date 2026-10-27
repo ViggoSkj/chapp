@@ -1945,3 +1945,6 @@ td.hanzi {
 .account-actions {display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:24px}
 .connection-state {margin:16px 0;color:var(--foreground);font-weight:600}
 @media(max-width:650px) {.login-panel {padding:24px;margin:12px auto}.account-label {display:none}.account-menu .button {padding:8px 10px}.topbar-right .language-label,.topbar-right .header-divider {display:none}}
+.page-demo-banner {display:flex;align-items:center;gap:14px;margin-bottom:24px;padding:14px 18px;border:1px solid #756529;border-radius:12px;background:var(--sage);color:var(--foreground);font-size:12px;line-height:1.5}
+.demo-sticker {display:inline-flex;flex-shrink:0;align-items:center;justify-content:center;padding:5px 10px;border:2px solid var(--background);border-radius:6px;background:var(--yellow);color:var(--background);font-size:11px;font-weight:800;letter-spacing:1.5px;transform:rotate(-4deg)}
+@media(max-width:640px) {.page-demo-banner {align-items:flex-start;gap:10px;padding:12px;margin-bottom:20px;font-size:11px}.demo-sticker {font-size:10px}}

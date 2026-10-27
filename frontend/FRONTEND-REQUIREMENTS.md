@@ -54,3 +54,14 @@ context into the prompt.
   the answer controls. Exact mobile layout and provider choices remain open.
 
 Update this file when the owner clarifies or changes these preferences.
+
+## Clearly label demo pages
+
+Owner requirement added on 2026-10-27: every frontend page that is still in demo
+mode must show a conspicuous Demo sticker/badge. Keep it visible on small screens
+and explain that the page uses sample content rather than live study data.
+
+Implemented for Overview, Vocabulary, Anki reviews, Progress, Daily practice,
+and Listening practice. Login, Connections, and Sentence practice use live
+services and must not be marked Demo. Update this classification when a page
+switches to real data; being signed in alone does not make a demo page live.
