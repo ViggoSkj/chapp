@@ -1930,3 +1930,18 @@ td.hanzi {
 
 @media(min-width:961px) { .toolkit-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 @media(max-width:640px) { .practice-shortcuts { grid-template-columns:1fr; } }
+
+.account-menu {display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.account-label {color:var(--muted);font-size:12px}
+.account-menu .button {min-height:36px;padding:8px 14px;font-size:12px}
+.login-panel {width:min(100%,480px);margin:32px auto;padding:36px}
+.login-panel h1 {font-size:32px;margin:12px 0}
+.login-form {display:grid;gap:20px;margin-top:28px}
+.login-form label {display:grid;gap:8px;color:var(--foreground);font-weight:600}
+.login-form input {width:100%;padding:13px 14px;border:1px solid var(--border);border-radius:10px;background:var(--background);color:var(--foreground)}
+.login-form input:disabled {opacity:.65}
+.login-note {font-size:12px;margin-top:24px;line-height:1.7}
+.account-error {color:var(--cerise-bright);margin-top:12px}
+.account-actions {display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:24px}
+.connection-state {margin:16px 0;color:var(--foreground);font-weight:600}
+@media(max-width:650px) {.login-panel {padding:24px;margin:12px auto}.account-label {display:none}.account-menu .button {padding:8px 10px}.topbar-right .language-label,.topbar-right .header-divider {display:none}}

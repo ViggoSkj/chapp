@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useAccount } from "./account";
+import { requestId } from "../lib/api";
 import { Icon } from "./icons";
 import styles from "./language-practice.module.css";
 
@@ -38,6 +40,7 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
 }
 
 export function SentenceExercise() {
+  const { state } = useAccount();
   const [difficulty, setDifficulty] = useState<Difficulty>("beginner");
   const [question, setQuestion] = useState<Question | null>(null);
   const [answer, setAnswer] = useState("");
@@ -60,6 +63,7 @@ export function SentenceExercise() {
   useEffect(() => {
     let active = true;
     async function initialize() {
+      if (state !== "signed-in") return;
       try {
         const login = await api<{ source_state: string; source_error?: string }>("/login-completions", {});
         const items = await api<Answer[]>("/attempts?offset=0&limit=20");
@@ -83,8 +87,7 @@ export function SentenceExercise() {
     }
     void initialize();
     return () => { active = false; };
-  }, []);
-
+  }, [state]);
   useEffect(() => {
     if (!("speechSynthesis" in window)) return;
     const synth = window.speechSynthesis;
@@ -100,7 +103,7 @@ export function SentenceExercise() {
   }
   function record(kind: string, voice?: SpeechSynthesisVoice) {
     if (!question) return;
-    void api(`/exercises/${question.id}/events`, { event_id: crypto.randomUUID(), kind, client_time: new Date().toISOString(),
+    void api(`/exercises/${question.id}/events`, { event_id: requestId(), kind, client_time: new Date().toISOString(),
       voice: voice?.voiceURI, language: voice?.lang, playback_rate: rate })
       .catch(() => setNotice("A playback event could not be saved. Your submitted answer is saved separately."));
   }
@@ -122,12 +125,12 @@ export function SentenceExercise() {
   }
   async function generate() {
     stop(); setBusy("Generating sentence…"); setError("");
-    generationId.current ??= crypto.randomUUID();
+    generationId.current ??= requestId();
     try {
       const next = await api<Question>("/exercises", { request_id: generationId.current, difficulty });
       setQuestion(next); setReview(null); setAnswer(""); submission.current = null; retryId.current = null;
       remember("exercise", next.id); generationId.current = null;
-      void api(`/exercises/${next.id}/events`, { event_id: crypto.randomUUID(), kind: "question-displayed", client_time: new Date().toISOString() }).catch(() => {});
+      void api(`/exercises/${next.id}/events`, { event_id: requestId(), kind: "question-displayed", client_time: new Date().toISOString() }).catch(() => {});
     } catch (failure) {
       setError(message(failure));
       // Keep the same key when the response is uncertain, so a network retry cannot pay for a duplicate generation.
@@ -138,7 +141,7 @@ export function SentenceExercise() {
   async function submit() {
     if (!question || !answer.trim()) return;
     setBusy("Saving answer and assessing…"); setError("");
-    if (!submission.current || submission.current.text !== answer) submission.current = { submission_id: crypto.randomUUID(), text: answer };
+    if (!submission.current || submission.current.text !== answer) submission.current = { submission_id: requestId(), text: answer };
     try {
       const saved = await api<Review>(`/exercises/${question.id}/attempts`, submission.current);
       setReview(saved); remember("attempt", saved.answer.id);
@@ -148,7 +151,7 @@ export function SentenceExercise() {
   }
   async function retry() {
     if (!review) return;
-    setBusy("Retrying assessment…"); setError(""); retryId.current ??= crypto.randomUUID();
+    setBusy("Retrying assessment…"); setError(""); retryId.current ??= requestId();
     try { setReview(await api<Review>(`/attempts/${review.answer.id}/assessment-retries`, { request_id: retryId.current })); retryId.current = null; }
     catch (failure) { setError(message(failure)); }
     finally { setBusy(""); }
@@ -162,6 +165,8 @@ export function SentenceExercise() {
     } catch (failure) { setError(message(failure)); }
     finally { setBusy(""); }
   }
+
+  if (state !== "signed-in") return <section className="panel detail-panel"><h1>{state === "loading" ? "Checking your account…" : "Sign in to practice"}</h1><p>{state === "unlinked" ? "Your Neuron login needs to be linked to a learner account." : "Your sentences and saved answers stay with your account."}</p><Link className="button primary" href={state === "unlinked" ? "/connections" : "/login"}>{state === "unlinked" ? "View account" : "Sign in"}</Link></section>;
 
   return <div className={cx("language-practice")}>
     <div className={cx("page-heading")}><div><div className={cx("eyebrow")}>APPLY WHAT YOU KNOW</div><h1>One sentence at a time.</h1><p>Translate a Mandarin sentence into English. Listen whenever it helps.</p></div><Link href="/practice" className={cx("button secondary")}>All practice <Icon name="arrow" size={16} /></Link></div>
