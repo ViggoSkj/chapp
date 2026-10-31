@@ -202,3 +202,20 @@
   .reveal-field { padding:14px; }
   .sentence-chinese { font-size:23px; }
 }
+
+.queue-panel { margin-bottom:24px; }
+.queue-actions { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+.queue-status { margin:14px 0; }
+.queue-list { list-style:none; padding:0; margin:18px 0; display:grid; gap:10px; }
+.queue-list li { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:15px; border:1px solid var(--border); border-radius:10px; background:var(--background); }
+.queue-list p { color:var(--foreground); font-size:20px; }
+.queue-list small { color:var(--muted); font-size:11px; }
+.queue-pagination { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:18px; }
+.queue-pagination span { color:var(--muted); font-size:11px; }
+@media(max-width:700px) {
+  .queue-actions { display:grid; }
+  .queue-pagination { flex-wrap:wrap; }
+  .queue-list li { align-items:flex-start; }
+}
+
+.queue-pagination :global(button:disabled), .queue-actions :global(button:disabled) { opacity:.45; cursor:not-allowed; }

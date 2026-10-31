@@ -29,12 +29,13 @@ function wave() {
     if (endpoint === '/me') result = { chapp_user_id: 'owner' };
     else if (endpoint === '/login-completions') result = { source_state: 'ready' };
     else if (endpoint === '/attempts') result = [];
+    else if (endpoint === '/exercises/failed') result = [];
     else if (endpoint === '/exercises') {
       generation++;
       result = { id: generation === 1 ? exerciseId : '33333333-3333-4333-8333-333333333333', mandarin: generation === 1 ? '你好。' : '我你好。', difficulty: 'beginner' };
     } else if (endpoint.endsWith('/attempts')) result = {
-      answer: { id: attemptId, exercise_id: exerciseId, text: body.text, submitted_at: '2026-10-31T12:00:00Z' },
-      question: { id: exerciseId, difficulty: 'beginner', content: { mandarin: '你好。', english: 'Hello.', pinyin: 'Nǐ hǎo.' } },
+      answer: { id: attemptId, exercise_id: endpoint.split('/')[2], text: body.text, submitted_at: '2026-10-31T12:00:00Z' },
+      question: { id: endpoint.split('/')[2], difficulty: 'beginner', content: { mandarin: '你好。', english: 'Hello.', pinyin: 'Nǐ hǎo.' } },
       assessments: [{ id: 'grade', state: 'completed', result: { correctness: 1, feedback: 'You preserved the greeting.', suggested_translation: 'Hello.' } }],
     };
     else if (endpoint.endsWith('/sound')) result = { content_type: 'audio/wav', audio_data: wave() };
@@ -87,7 +88,9 @@ function wave() {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('' + testOrigin + '/practice');
     assert.equal(await page.locator('button[aria-label^="Explore "]').count(), 0);
-    await page.getByRole('button', { name: 'Reveal meaning' }).click();
+    await page.getByRole('button', { name: 'Generate a new sentence', exact: true }).click();
+    await page.getByLabel('Your English translation').fill('Hello');
+    await page.getByRole('button', { name: 'Submit for grading' }).click();
     await page.locator('button[aria-label^="Explore "]').first().click();
     await page.getByRole('dialog').waitFor();
     await page.screenshot({ path: out + '/learning-support-mobile.png', fullPage: true });

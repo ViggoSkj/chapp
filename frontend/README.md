@@ -97,3 +97,13 @@ resolution and Microsoft Edge installed, start the app on port 3010 and run:
 LEARNING_TEST_ORIGIN overrides the local origin; LEARNING_TEST_OUTPUT selects a
 screenshot folder (otherwise the system temporary folder is used). All API
 requests in this browser test are mocked; it does not make paid provider calls.
+
+
+## Real Daily practice
+
+/practice uses the authenticated failed-question endpoint and the shared sentence
+workflow. Learners can revisit an original question with a fresh answer or explicitly
+generate a new sentence. References are hidden for each fresh attempt. Queue paging,
+reload restoration, assessment retry, empty/error states, and Anki-refresh outages
+are covered by tests/practice-queue.browser.cjs. Run it like the learning-support
+browser regression with the same optional origin/output environment settings.

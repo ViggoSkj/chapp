@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { DetailPage } from "../components/workspace";
+import { SentenceExercise } from "../components/sentence-exercise";
 
 export const metadata: Metadata = {
   title: "Daily practice — Mando",
 };
 
 export default function Page() {
-  return <DetailPage section="practice" />;
+  return <SentenceExercise practiceQueue />;
 }

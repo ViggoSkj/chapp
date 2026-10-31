@@ -61,8 +61,8 @@ Owner requirement added on 2026-10-27: every frontend page that is still in demo
 mode must show a conspicuous Demo sticker/badge. Keep it visible on small screens
 and explain that the page uses sample content rather than live study data.
 
-Implemented for Overview, Vocabulary, Anki reviews, Progress, Daily practice,
-and Listening practice. Login, Connections, and Sentence practice use live
+Implemented for Overview, Vocabulary, Anki reviews, Progress,
+and Listening practice. Daily practice now uses real saved questions. Login, Connections, Sentence practice, and Daily practice use live
 services and must not be marked Demo. Update this classification when a page
 switches to real data; being signed in alone does not make a demo page live.
 
@@ -70,8 +70,17 @@ switches to real data; being signed in alone does not make a demo page live.
 ## Implemented learning support (2026-10-31)
 
 - Shared lower-right chat receives explicit current mode, reveal state and bounded recent actions.
-- Sentence practice, listening, vocabulary and word recall publish their visible content and enable individual character exploration after reveal.
+- Sentence practice, Daily practice, listening and vocabulary publish their visible content and enable individual character exploration after reveal.
 - Character panels show AI explanations and pinyin, with audio through the backend database sound cache. This implements the owner request for cached character sound; a separate dictionary provider is not configured.
 - Issued sentence playback also uses server-cached sound. Existing standalone demo listening keeps its browser voice controls.
 - Context switches clear prior conversation and character panels; desktop and mobile layouts and keyboard selection are covered by browser checks.
 - The chat uses the configured backend AI provider. Its conversation stays in the current browser session; provider execution evidence is recorded by the backend.
+
+
+## Real Daily practice queue (2026-10-31)
+
+- Daily practice uses actual owned failed questions, with paging and a retry-or-generate choice. It is no longer a demo page.
+- Trying a saved question starts a blank independent answer on the original question. Previous answer/reference content is hidden until the new submission is reviewed.
+- Completed fully correct answers leave the queue. Failed or unfinished grading does not count as an incorrect new answer.
+- Saved practice remains usable if Anki refresh fails. Queue errors, an empty queue, source refresh notices, and saved-answer state remain distinct.
+- The existing shared chat, post-reveal character exploration, and database-cached audio also apply to this route.

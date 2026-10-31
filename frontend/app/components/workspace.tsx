@@ -4,13 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { AccountMenu } from "./account";
-import { ExploreText, useLearningPage, useLearningSupport } from "./learning-support";
+import { ExploreText, useLearningPage } from "./learning-support";
 import { Icon } from "./icons";
 import { monthlyReviews, sections, weeklyReviews, words } from "../lib/demo";
 
 export function Workspace({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isDemoPage = ["/", "/vocabulary", "/reviews", "/progress", "/practice", "/listening"].includes(pathname);
+  const isDemoPage = ["/", "/vocabulary", "/reviews", "/progress", "/listening"].includes(pathname);
   const navigation = [{ id: "", title: "Overview", icon: "grid" }, ...sections, { id: "connections", title: "Connections", icon: "plug" }];
   return <div className="workspace">
     <aside className="sidebar">
@@ -67,19 +67,7 @@ function Reviews() {
   return <section className="panel detail-panel"><div className="panel-heading"><div><h2>Your Anki decks</h2><p>Example review queues. Live scheduling will come from Anki.</p></div><Icon name="cards" /></div><div className="deck-list">{[{ title: "Everyday Mandarin", sub: "Useful words for everyday conversations", due: 14, total: 680 }, { title: "HSK vocabulary", sub: "A foundation for your next language milestone", due: 8, total: 450 }, { title: "Words from life", sub: "Expressions collected along the way", due: 2, total: 118 }].map(deck => <div className="deck-row" key={deck.title}><span className="tool-icon sage"><Icon name="cards" /></span><div className="deck-title"><h3>{deck.title}</h3><p>{deck.sub}</p><small>{deck.total} words</small></div><span className="due-count">{deck.due}<small>due today</small></span><Link href="/practice" className="button secondary">Try sample review <Icon name="arrow" size={16} /></Link></div>)}</div></section>;
 }
 
-function Practice() {
-  const [index, setIndex] = useState(0);
-  const [revealed, setRevealed] = useState(false);
-  const [known, setKnown] = useState(0);
-  const finished = index === words.length;
-  const { action } = useLearningSupport();
-  useLearningPage({ key: "recall-" + index, page: "/practice", mode: "word-recall", revealed,
-    content: finished ? [] : [{ text: words[index].hanzi, language: "zh-Hans" }, ...(revealed ? [{ text: words[index].meaning, language: "en" }, { text: words[index].pinyin, language: "zh-Latn-pinyin" }] : [])] });
-  function next(remembered: boolean) { action(remembered ? "Marked word familiar" : "Marked word for more practice"); setKnown(n => n + (remembered ? 1 : 0)); setIndex(n => n + 1); setRevealed(false); }
-  return <><div className="practice-shortcuts"><Link href="/sentences"><Icon name="book" /><div><strong>Sentence practice</strong><p>Generate sentences with difficulty levels and hidden answers.</p></div><Icon name="arrow" size={17} /></Link><Link href="/listening"><Icon name="sound" /><div><strong>Listening practice</strong><p>Recognize spoken characters or listen to full sentences.</p></div><Icon name="arrow" size={17} /></Link></div><section className="panel practice-panel"><span className="eyebrow">{finished ? "SESSION COMPLETE" : `RECALL PRACTICE · ${index + 1} OF ${words.length}`}</span><div className="practice-progress"><span style={{ width: `${index / words.length * 100}%` }} /></div>{finished ? <div className="practice-content"><span className="completion-icon"><Icon name="check" size={35} /></span><h2>A little progress, made.</h2><p>You remembered {known} of {words.length} example words.</p><p className="practice-note">This demo session is not saved to Anki or your progress.</p><button className="button primary" onClick={() => { setIndex(0); setKnown(0); }}>Practice again <Icon name="arrow" size={17} /></button></div> : <div className="practice-content"><p>Can you remember this word?</p><div className="practice-hanzi" lang="zh"><ExploreText text={words[index].hanzi} enabled={revealed} /></div>{revealed ? <div className="answer" aria-live="polite"><h3>{words[index].pinyin}</h3><p>{words[index].meaning}</p><div className="practice-actions"><button className="button secondary" onClick={() => next(false)}>Still learning</button><button className="button primary" onClick={() => next(true)}>I knew it <Icon name="check" size={17} /></button></div></div> : <button className="button primary" onClick={() => { action("Revealed word meaning"); setRevealed(true); }}>Reveal meaning <Icon name="arrow" size={17} /></button>}<p className="practice-note">Take your time. Learning isn’t a race.</p></div>}</section></>;
-}
-
 export function DetailPage({ section }: { section: string }) {
   const item = sections.find(item => item.id === section);
-  return <><PageHeading title={item?.title ?? "Your learning, connected."} description={item?.description ?? "A home for the tools that power your Mandarin journey."} />{section === "vocabulary" && <Vocabulary />}{section === "reviews" && <Reviews />}{section === "practice" && <Practice />}{section === "progress" && <><Stats /><div className="insights-grid detail-insights"><ActivityChart /><GoalCard /></div><section className="panel detail-panel"><h2>Every word is a step forward.</h2><p>Your progress page will bring together study time, review consistency, retention, and vocabulary milestones from your connected collection. The figures above illustrate how your learning story will look.</p><Link href="/vocabulary" className="text-link">Explore your vocabulary <Icon name="arrow" size={16} /></Link></section></>}</>;
+  return <><PageHeading title={item?.title ?? "Your learning, connected."} description={item?.description ?? "A home for the tools that power your Mandarin journey."} />{section === "vocabulary" && <Vocabulary />}{section === "reviews" && <Reviews />}{section === "progress" && <><Stats /><div className="insights-grid detail-insights"><ActivityChart /><GoalCard /></div><section className="panel detail-panel"><h2>Every word is a step forward.</h2><p>Your progress page will bring together study time, review consistency, retention, and vocabulary milestones from your connected collection. The figures above illustrate how your learning story will look.</p><Link href="/vocabulary" className="text-link">Explore your vocabulary <Icon name="arrow" size={16} /></Link></section></>}</>;
 }

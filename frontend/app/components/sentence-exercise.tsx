@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAccount } from "./account";
 import { requestId } from "../lib/api";
 import { ExploreText, useLearningPage, useLearningSupport } from "./learning-support";
@@ -20,9 +20,9 @@ class ApiError extends Error {
   constructor(message: string, readonly definitiveGenerationFailure = false) { super(message); }
 }
 
-async function api<T>(path: string, body?: unknown): Promise<T> {
+async function api<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`/chapbackend-api${path}`, {
-    method: body === undefined ? "GET" : "POST", credentials: "same-origin", cache: "no-store",
+    method: body === undefined ? "GET" : "POST", credentials: "same-origin", cache: "no-store", signal,
     headers: body === undefined ? {} : { "Content-Type": "application/json", "X-Chapp-Request": "1" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
@@ -31,7 +31,7 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
     if (response.status === 403) throw new Error("Access unavailable. Your Neuron login must be linked to a manually created Chapp user.");
     const text = await response.text();
     const known = ["anki-not-configured", "openai-not-configured", "unmapped-note-type", "no-eligible-characters", "unknown-generated-character",
-      "generation-incomplete-use-new-request", "invalid-generated-question", "disallowed-generated-character", "dependency-failed",
+      "generation-incomplete-use-new-request", "invalid-character-policy", "invalid-generated-question", "disallowed-generated-character", "dependency-failed",
       "anki-read-failed", "anki-action-failed", "openai-request-failed", "incomplete-provider-response", "provider-refused-or-empty",
       "source-field-schema-changed", "unsupported-expression-format", "invalid-mapped-expression", "source-too-large-narrow-selection-required"];
     const code = known.find(value => text.includes(value));
@@ -41,13 +41,20 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export function SentenceExercise() {
+export function SentenceExercise({ practiceQueue = false }: { practiceQueue?: boolean }) {
   const { state } = useAccount();
+  const pagePath = practiceQueue ? "/practice" : "/sentences";
   const [difficulty, setDifficulty] = useState<Difficulty>("beginner");
   const [question, setQuestion] = useState<Question | null>(null);
   const [answer, setAnswer] = useState("");
   const [review, setReview] = useState<Review | null>(null);
   const [history, setHistory] = useState<Answer[]>([]);
+  const [failedQuestions, setFailedQuestions] = useState<Question[]>([]);
+  const [queueOffset, setQueueOffset] = useState(0);
+  const [queueHasMore, setQueueHasMore] = useState(false);
+  const [queueLoading, setQueueLoading] = useState(false);
+  const [queueError, setQueueError] = useState("");
+  const queueRequest = useRef<AbortController | null>(null);
   const [busy, setBusy] = useState("Connecting…");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -60,41 +67,58 @@ export function SentenceExercise() {
   const generationId = useRef<string | null>(null);
   const completed = review?.assessments.find(run => run.state === "completed" && run.result);
 
+  const loadFailedQuestions = useCallback(async (offset: number) => {
+    queueRequest.current?.abort();
+    const controller = new AbortController(); queueRequest.current = controller;
+    setQueueLoading(true); setQueueError("");
+    try {
+      const items = await api<Question[]>("/exercises/failed?offset=" + offset + "&limit=21", undefined, controller.signal);
+      if (controller.signal.aborted) return;
+      if (!Array.isArray(items)) throw new Error("Your practice queue could not load. Please try again.");
+      setFailedQuestions(items.slice(0, 20)); setQueueHasMore(items.length > 20 && offset < 10000); setQueueOffset(offset);
+    } catch (failure) {
+      if (!controller.signal.aborted) setQueueError(failure instanceof Error ? failure.message : "Your practice queue could not load.");
+    } finally { if (!controller.signal.aborted) setQueueLoading(false); }
+  }, []);
+
   useEffect(() => {
     let active = true;
     async function initialize() {
       if (state !== "signed-in") return;
+      if (practiceQueue) void loadFailedQuestions(0);
+      // Saved questions remain usable independently of source refresh and generation availability.
+      void api<{ source_state: string; source_error?: string }>("/login-completions", {}).then(login => {
+        if (active && login.source_state !== "ready") setNotice("Anki refresh is unavailable. You can still revisit saved questions; generation may use the last loaded source.");
+      }).catch(() => { if (active) setNotice("Anki refresh is unavailable. Saved questions and answers remain available."); });
       try {
-        const login = await api<{ source_state: string; source_error?: string }>("/login-completions", {});
         const items = await api<Answer[]>("/attempts?offset=0&limit=20");
         if (!active) return;
-        setHistory(items); setReady(true);
-        if (login.source_state !== "ready") setNotice(`Anki refresh is unavailable (${login.source_error ?? "source unavailable"}). A previously loaded source may still be usable.`);
+        setHistory(items);
         const query = new URLSearchParams(window.location.search);
         const attemptId = query.get("attempt");
         const exerciseId = query.get("exercise");
         if (attemptId) {
-          const saved = await api<Review>(`/attempts/${encodeURIComponent(attemptId)}`);
+          const saved = await api<Review>("/attempts/" + encodeURIComponent(attemptId));
           if (!active) return;
           setReview(saved); setAnswer(saved.answer.text);
           setQuestion({ id: saved.question.id, mandarin: saved.question.content.mandarin, difficulty: saved.question.difficulty });
         } else if (exerciseId) {
-          const saved = await api<Question>(`/exercises/${encodeURIComponent(exerciseId)}`);
+          const saved = await api<Question>("/exercises/" + encodeURIComponent(exerciseId));
           if (active) setQuestion(saved);
         }
       } catch (failure) { if (active) setError(message(failure)); }
-      finally { if (active) setBusy(""); }
+      finally { if (active) { setReady(true); setBusy(""); } }
     }
     void initialize();
-    return () => { active = false; };
-  }, [state]);
+    return () => { active = false; queueRequest.current?.abort(); };
+  }, [state, practiceQueue, loadFailedQuestions]);
 
   function message(failure: unknown) { return failure instanceof Error ? failure.message : "The request failed. Please try again."; }
   function remember(kind: "exercise" | "attempt", id: string) {
     const url = new URL(window.location.href); url.search = ""; url.searchParams.set(kind, id);
     window.history.replaceState(null, "", url);
   }
-  useLearningPage({ key: question?.id ?? "sentences", page: "/sentences", mode: "sentence-practice",
+  useLearningPage({ key: question?.id ?? pagePath, page: pagePath, mode: practiceQueue ? "daily-practice" : "sentence-practice",
     revealed: !!review, exercise_id: question?.id, attempt_id: review?.answer.id,
     content: question ? [{ text: question.mandarin, language: "zh-Hans" }] : [] });
   function record(kind: string) {
@@ -132,13 +156,18 @@ export function SentenceExercise() {
       const saved = await api<Review>(`/exercises/${question.id}/attempts`, submission.current);
       action("Submitted an answer and revealed the review"); setReview(saved); remember("attempt", saved.answer.id);
       setHistory(items => [saved.answer, ...items.filter(item => item.id !== saved.answer.id)].slice(0, 20));
+      if (practiceQueue) void loadFailedQuestions(0);
     } catch (failure) { setError(message(failure)); }
     finally { setBusy(""); }
   }
   async function retry() {
     if (!review) return;
     setBusy("Retrying assessment…"); setError(""); retryId.current ??= requestId();
-    try { setReview(await api<Review>(`/attempts/${review.answer.id}/assessment-retries`, { request_id: retryId.current })); retryId.current = null; }
+    try {
+      const saved = await api<Review>("/attempts/" + review.answer.id + "/assessment-retries", { request_id: retryId.current });
+      setReview(saved); retryId.current = null;
+      if (practiceQueue) void loadFailedQuestions(0);
+    }
     catch (failure) { setError(message(failure)); }
     finally { setBusy(""); }
   }
@@ -152,12 +181,40 @@ export function SentenceExercise() {
     finally { setBusy(""); }
   }
 
+  function revisit(saved: Question) {
+    stop();
+    setQuestion(saved); setReview(null); setAnswer(""); setError("");
+    submission.current = null; retryId.current = null; generationId.current = null;
+    remember("exercise", saved.id);
+    action("Started another attempt at a saved question");
+  }
   if (state !== "signed-in") return <section className="panel detail-panel"><h1>{state === "loading" ? "Checking your account…" : "Sign in to practice"}</h1><p>{state === "unlinked" ? "Your Neuron login needs to be linked to a learner account." : "Your sentences and saved answers stay with your account."}</p><Link className="button primary" href={state === "unlinked" ? "/connections" : "/login"}>{state === "unlinked" ? "View account" : "Sign in"}</Link></section>;
 
   return <div className={cx("language-practice")}>
-    <div className={cx("page-heading")}><div><div className={cx("eyebrow")}>APPLY WHAT YOU KNOW</div><h1>One sentence at a time.</h1><p>Translate a Mandarin sentence into English. Listen whenever it helps.</p></div><Link href="/practice" className={cx("button secondary")}>All practice <Icon name="arrow" size={16} /></Link></div>
+    <div className={cx("page-heading")}><div><div className={cx("eyebrow")}>APPLY WHAT YOU KNOW</div><h1>{practiceQueue ? "Your next step in Mandarin." : "One sentence at a time."}</h1><p>{practiceQueue ? "Revisit a question that needs practice, or try a new sentence." : "Translate a Mandarin sentence into English. Listen whenever it helps."}</p></div><Link href={practiceQueue ? "/sentences" : "/practice"} className={cx("button secondary")}>{practiceQueue ? "Sentence practice" : "All practice"} <Icon name="arrow" size={16} /></Link></div>
     {error && <p className={cx("speech-status")} role="alert">{error}</p>}
     {notice && <p className={cx("speech-status")} role="status">{notice}</p>}
+    {practiceQueue && <section className={cx("panel exercise-panel queue-panel")} aria-busy={queueLoading} aria-label="Your practice queue">
+      <div className={cx("exercise-toolbar")}><div><h2>Your practice queue</h2><p>Revisit sentences where your last graded answer missed some meaning.</p></div><button className={cx("button secondary")} disabled={queueLoading} onClick={() => void loadFailedQuestions(queueOffset)}>Refresh queue</button></div>
+      <div className={cx("exercise-body")}>
+        <div className={cx("queue-actions")}>
+          <button className={cx("button primary")} disabled={!!busy || queueLoading || !failedQuestions.length || !!queueError} onClick={() => revisit(failedQuestions[0])}>Retry next question</button>
+          <button className={cx("button secondary")} disabled={!!busy || !ready} onClick={() => void generate()}><Icon name="spark" size={17} />Generate a new sentence</button>
+        </div>
+        {queueLoading && <p className={cx("queue-status")} role="status">Loading your saved questions…</p>}
+        {queueError ? <div className={cx("queue-status")} role="alert"><p>{queueError}</p><button className={cx("button secondary")} disabled={queueLoading} onClick={() => void loadFailedQuestions(queueOffset)}>Reload practice queue</button></div>
+          : !queueLoading && !failedQuestions.length ? <p className={cx("queue-status")}>No questions to revisit on this page. Generate a new sentence whenever you’re ready.</p> : null}
+        {!queueError && failedQuestions.length > 0 && <ul className={cx("queue-list")}>{failedQuestions.map(item => <li key={item.id}>
+          <div><p lang="zh-Hans">{item.mandarin}</p><small>{item.difficulty}</small></div>
+          <button className={cx("button secondary")} disabled={!!busy || queueLoading} onClick={() => revisit(item)} aria-label={"Retry sentence " + item.mandarin}>Try again</button>
+        </li>)}</ul>}
+        <div className={cx("queue-pagination")}>
+          <button className={cx("button secondary")} disabled={queueLoading || queueOffset === 0} onClick={() => void loadFailedQuestions(Math.max(0, queueOffset - 20))}>Previous questions</button>
+          <span>{queueOffset ? "Page " + (Math.floor(queueOffset / 20) + 1) : "Most recent first"}</span>
+          <button className={cx("button secondary")} disabled={queueLoading || !queueHasMore || !!queueError} onClick={() => void loadFailedQuestions(queueOffset + 20)}>More questions</button>
+        </div>
+      </div>
+    </section>}
     <section className={cx("panel exercise-panel")} aria-busy={!!busy}>
       <div className={cx("exercise-toolbar")}><div><h2>Mandarin to English</h2><p>AI sentences constrained to characters from your eligible Anki content.</p></div><label className={cx("difficulty-select")}>Next sentence difficulty<select value={difficulty} disabled={!!busy} onChange={event => { setDifficulty(event.target.value as Difficulty); generationId.current = null; }}><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></label></div>
       <div className={cx("exercise-body")}>
@@ -168,7 +225,7 @@ export function SentenceExercise() {
           <label className={cx("translation-draft")}>Your English translation<textarea value={answer} disabled={!!busy || !!review} onChange={event => setAnswer(event.target.value)} maxLength={8000} rows={4} placeholder="Write the meaning in your own words…" /></label>
           {!review && <button className={cx("button primary")} disabled={!!busy || !answer.trim()} onClick={() => void submit()}>Submit for grading</button>}
           {review && <div className={cx("character-feedback")} role="status"><p><strong>Reference:</strong> {review.question.content.english}</p><p lang="zh-Latn-pinyin">{review.question.content.pinyin}</p>{completed?.result ? <><strong>Correctness: {completed.result.correctness.toFixed(2)} / 1</strong><p>{completed.result.feedback}</p><p><strong>Suggested translation:</strong> {completed.result.suggested_translation}</p></> : <><strong>Your answer is saved.</strong><p>Assessment is {review.assessments[0]?.state ?? "pending"}. This has not been counted as an incorrect answer.</p><button className={cx("button secondary")} disabled={!!busy} onClick={() => void retry()}>Retry assessment</button></>}</div>}
-        </> : <p>Generate a sentence when you’re ready. Your answer and feedback will be saved to your Chapp account.</p>}
+        </> : <p>{practiceQueue ? "Choose a saved question above, or generate a new sentence. Every new answer is saved as a separate attempt." : "Generate a sentence when you’re ready. Your answer and feedback will be saved to your Chapp account."}</p>}
         <div className={cx("exercise-bottom")}><span role="status">{busy || (review ? "Saved to your account" : "Meaning matters; imperfect English is welcome.")}</span><button className={cx("button primary")} disabled={!!busy || !ready} onClick={() => void generate()}><Icon name="spark" size={17} />{question ? "Generate next sentence" : "Generate sentence"}</button></div>
       </div>
       {sound.error && <p className={cx("speech-status")} role="alert">{sound.error}</p>}
