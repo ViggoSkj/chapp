@@ -3,6 +3,7 @@
 import Link from "next/link";
 import styles from "./language-practice.module.css";
 import { useEffect, useRef, useState } from "react";
+import { ExploreText, useLearningPage, useLearningSupport } from "./learning-support";
 import { Icon } from "./icons";
 import {
   difficultyDescriptions, difficultyLabels, generateCharacterRound, generateSentence,
@@ -25,8 +26,8 @@ function useMandarinSpeech() {
 
   useEffect(() => {
     if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
-      setStatus("Speech playback is unavailable in this browser. Try a browser with text-to-speech support.");
-      return;
+      const unavailable = globalThis.setTimeout(() => setStatus("Speech playback is unavailable in this browser. Try a browser with text-to-speech support."), 0);
+      return () => globalThis.clearTimeout(unavailable);
     }
     const synth = window.speechSynthesis;
     function updateVoices() {
@@ -100,11 +101,12 @@ function ListenButton({ speech, text }: { speech: Speech; text: string }) {
   return <div className={cx("listen-actions")}><button className={cx("button primary listen-button")}  disabled={!speech.voices.length} onClick={() => speech.speak(text)}><Icon name="sound" size={21} />{speech.speaking ? "Replay audio" : "Listen"}</button>{speech.speaking && <button className={cx("button secondary")}  onClick={speech.stop}>Stop</button>}</div>;
 }
 
-function RevealField({ label, value, language, large = false }: { label: string; value: string; language?: string; large?: boolean }) {
+function RevealField({ label, value, language, large = false, onReveal }: { label: string; value: string; language?: string; large?: boolean; onReveal?: (open: boolean) => void }) {
   const [open, setOpen] = useState(false);
+  const { action } = useLearningSupport();
   return <div className={cx(`reveal-field ${open ? "is-revealed" : ""}`)}>
-    <div className={cx("reveal-heading")}><span>{label}</span><button className={cx("reveal-button")}  aria-expanded={open} onClick={() => setOpen(value => !value)}>{open ? "Hide" : "Reveal"} {label.toLowerCase()}<Icon name={open ? "eye-off" : "eye"} size={17} /></button></div>
-    {open ? <p className={cx(large ? "sentence-chinese" : "sentence-answer")} lang={language}>{value}</p> : <p className={cx("hidden-answer")}>Hidden until you’re ready.</p>}
+    <div className={cx("reveal-heading")}><span>{label}</span><button className={cx("reveal-button")}  aria-expanded={open} onClick={() => { setOpen(value => !value); onReveal?.(!open); action((open ? "Hid " : "Revealed ") + label); }}>{open ? "Hide" : "Reveal"} {label.toLowerCase()}<Icon name={open ? "eye-off" : "eye"} size={17} /></button></div>
+    {open ? <p className={cx(large ? "sentence-chinese" : "sentence-answer")} lang={language}>{language?.startsWith("zh") && language !== "zh-Latn" ? <ExploreText text={value} /> : value}</p> : <p className={cx("hidden-answer")}>Hidden until you’re ready.</p>}
   </div>;
 }
 
@@ -123,9 +125,17 @@ export function LanguagePractice({ kind }: { kind: PracticeKind }) {
   const [heard, setHeard] = useState(false);
   const [score, setScore] = useState({ correct: 0, attempted: 0 });
   const speech = useMandarinSpeech();
+  const [revealed, setRevealed] = useState(false);
+  const { action } = useLearningSupport();
   const characterMode = kind === "listening" && mode === "characters";
 
+  useLearningPage({ key: kind + mode + version, page: kind === "listening" ? "/listening" : "/sentences",
+    mode: characterMode ? "character-listening" : "sentence-listening", revealed: characterMode ? !!selected : revealed,
+    content: characterMode ? (selected ? [{ text: round.target.chinese, language: "zh-Hans" }, { text: round.target.english, language: "en" }] : [])
+      : [{ text: sentence.chinese, language: "zh-Hans" }, ...(revealed ? [{ text: sentence.english, language: "en" }, { text: sentence.pinyin, language: "zh-Latn-pinyin" }] : [])] });
+
   function newExercise(level = difficulty) {
+    setRevealed(false); action("Started a new practice item");
     speech.stop();
     setSentence(generateSentence(level, sentence.chinese));
     setRound(generateCharacterRound(level, round.target.chinese));
@@ -143,6 +153,7 @@ export function LanguagePractice({ kind }: { kind: PracticeKind }) {
   }
   function answer(chinese: string) {
     if (selected || !heard) return;
+    action("Answered the character listening question");
     setSelected(chinese);
     setScore(value => ({ attempted: value.attempted + 1, correct: value.correct + Number(chinese === round.target.chinese) }));
   }
@@ -159,17 +170,17 @@ export function LanguagePractice({ kind }: { kind: PracticeKind }) {
           <h3 className={cx("exercise-prompt")}>Which character do you hear?</h3><p className={cx("exercise-description")}>Press Listen, then choose one of the four characters.</p>
           <div className={cx("listen-actions")}><button className={cx("button primary listen-button")}  disabled={!speech.voices.length} onClick={() => { speech.speak(round.target.chinese, () => setHeard(true)); }}><Icon name="sound" size={21} />{heard ? "Listen again" : "Listen"}</button>{speech.speaking && <button className={cx("button secondary")}  onClick={speech.stop}>Stop</button>}</div>
           <div className={cx("character-options")}  role="group" aria-label="Character answers">{round.options.map(option => <button key={option.chinese} disabled={!!selected || !heard} className={cx(`character-option ${selected && option.chinese === round.target.chinese ? "correct" : ""} ${selected === option.chinese && selected !== round.target.chinese ? "incorrect" : ""}`)} onClick={() => answer(option.chinese)}><span lang="zh-CN">{option.chinese}</span>{selected && <small>{option.pinyin}</small>}{selected && option.chinese === round.target.chinese && <span className={cx("option-result")}>Correct answer</span>}{selected === option.chinese && selected !== round.target.chinese && <span className={cx("option-result")}>Your answer</span>}</button>)}</div>
-          <div className={cx("character-feedback")}  role="status">{selected ? <><strong>{selected === round.target.chinese ? "That’s right!" : "Keep listening — you’ll get there."}</strong><p><span lang="zh-CN">{round.target.chinese}</span> · {round.target.pinyin} · {round.target.english}</p></> : <p>{heard ? "Choose the character that matches the sound." : "Listen first, then make your choice."}</p>}</div>
+          <div className={cx("character-feedback")}  role="status">{selected ? <><strong>{selected === round.target.chinese ? "That’s right!" : "Keep listening — you’ll get there."}</strong><p><span lang="zh-CN"><ExploreText text={round.target.chinese} enabled={!!selected} /></span> · {round.target.pinyin} · {round.target.english}</p></> : <p>{heard ? "Choose the character that matches the sound." : "Listen first, then make your choice."}</p>}</div>
           <div className={cx("exercise-bottom")}><span>{score.correct} correct / {score.attempted} answered this visit</span><button className={cx("button secondary")}  onClick={() => newExercise()}>Next character <Icon name="arrow" size={16} /></button></div>
         </> : <>
           <h3 className={cx("exercise-prompt")}>{kind === "sentences" ? "What does this sentence mean?" : "How much can you understand?"}</h3>
-          {kind === "sentences" ? <p className={cx("sentence-prompt")}  lang="zh-CN">{sentence.chinese}</p> : <p className={cx("exercise-description")}>Listen before opening the text. Reveal just the help you need.</p>}
+          {kind === "sentences" ? <p className={cx("sentence-prompt")}  lang="zh-CN"><ExploreText text={sentence.chinese} enabled={revealed} /></p> : <p className={cx("exercise-description")}>Listen before opening the text. Reveal just the help you need.</p>}
           <ListenButton speech={speech} text={sentence.chinese} />
           {kind === "sentences" && <label className={cx("translation-draft")}>Your translation or notes <span>Optional · for your own comparison</span><textarea key={`draft-${version}`} placeholder="Try translating before you reveal the answer…" rows={3} /></label>}
           <div className={cx("sentence-reveals")}  key={`reveals-${version}`}>
             {kind === "listening" && <RevealField label="Chinese" value={sentence.chinese} language="zh-CN" large />}
             <RevealField label="Pinyin" value={sentence.pinyin} language="zh-Latn" />
-            <RevealField label="English" value={sentence.english} language="en" />
+            <RevealField label="English" value={sentence.english} language="en" onReveal={setRevealed} />
           </div>
           <div className={cx("exercise-bottom")}><span>Fresh combinations from built-in grammar patterns.</span><button className={cx("button primary")}  onClick={() => newExercise()}><Icon name="spark" size={17} />Generate sentence</button></div>
         </>}

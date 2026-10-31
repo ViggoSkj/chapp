@@ -73,3 +73,27 @@ See [FRONTEND-REQUIREMENTS.md](FRONTEND-REQUIREMENTS.md) for the owner's request
 answer-reveal states across all modes, character-meaning lookups after reveal,
 and a contextual question window in the lower-right corner. These are recorded
 requirements for future implementation.
+
+
+## Learning companion and character exploration
+
+The shared learning companion appears in the lower-right corner. Signed-in
+learners can ask about the active page without copying the exercise manually.
+After reveal, Chinese characters open meaning/pronunciation panels. Character
+sound and issued sentence playback use the authenticated backend database cache.
+The backend requires its existing OpenAI settings for explanations and existing
+ElevenLabs settings for audio; no provider credentials belong in the browser.
+
+Run the existing Node tests with a compatible Node 24 runtime:
+
+    node --test tests/*.test.mjs
+
+An optional mocked browser regression is retained as
+tests/learning-support.browser.cjs. With Playwright available through normal Node
+resolution and Microsoft Edge installed, start the app on port 3010 and run:
+
+    node tests/learning-support.browser.cjs
+
+LEARNING_TEST_ORIGIN overrides the local origin; LEARNING_TEST_OUTPUT selects a
+screenshot folder (otherwise the system temporary folder is used). All API
+requests in this browser test are mocked; it does not make paid provider calls.

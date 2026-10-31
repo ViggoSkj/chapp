@@ -65,3 +65,13 @@ Implemented for Overview, Vocabulary, Anki reviews, Progress, Daily practice,
 and Listening practice. Login, Connections, and Sentence practice use live
 services and must not be marked Demo. Update this classification when a page
 switches to real data; being signed in alone does not make a demo page live.
+
+
+## Implemented learning support (2026-10-31)
+
+- Shared lower-right chat receives explicit current mode, reveal state and bounded recent actions.
+- Sentence practice, listening, vocabulary and word recall publish their visible content and enable individual character exploration after reveal.
+- Character panels show AI explanations and pinyin, with audio through the backend database sound cache. This implements the owner request for cached character sound; a separate dictionary provider is not configured.
+- Issued sentence playback also uses server-cached sound. Existing standalone demo listening keeps its browser voice controls.
+- Context switches clear prior conversation and character panels; desktop and mobile layouts and keyboard selection are covered by browser checks.
+- The chat uses the configured backend AI provider. Its conversation stays in the current browser session; provider execution evidence is recorded by the backend.
