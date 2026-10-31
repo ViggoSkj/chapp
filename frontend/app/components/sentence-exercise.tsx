@@ -10,7 +10,7 @@ import { Icon } from "./icons";
 import styles from "./language-practice.module.css";
 
 type Question = { id: string; mandarin: string; difficulty: string };
-type Answer = { id: string; exercise_id: string; text: string; submitted_at: string };
+type Answer = { id: string; exercise_id: string; text: string; submitted_at: string; dont_know?: boolean };
 type Grade = { correctness: number; feedback: string; suggested_translation: string };
 type Run = { id: string; state: string; result?: Grade; error_code?: string };
 type Review = { answer: Answer; question: { id: string; content: { mandarin: string; english: string; pinyin: string }; difficulty: string }; assessments: Run[] };
@@ -62,7 +62,7 @@ export function SentenceExercise({ practiceQueue = false }: { practiceQueue?: bo
   const [rate, setRate] = useState(0.8);
   const sound = useCachedAudio(question?.id ?? "sentence");
   const { action } = useLearningSupport();
-  const submission = useRef<{ submission_id: string; text: string } | null>(null);
+  const submission = useRef<{ submission_id: string; text: string; dont_know?: boolean } | null>(null);
   const retryId = useRef<string | null>(null);
   const generationId = useRef<string | null>(null);
   const completed = review?.assessments.find(run => run.state === "completed" && run.result);
@@ -148,13 +148,16 @@ export function SentenceExercise({ practiceQueue = false }: { practiceQueue?: bo
     }
     finally { setBusy(""); }
   }
-  async function submit() {
-    if (!question || !answer.trim()) return;
-    setBusy("Saving answer and assessing…"); setError("");
-    if (!submission.current || submission.current.text !== answer) submission.current = { submission_id: requestId(), text: answer };
+  async function submit(dontKnow = false) {
+    if (!question || (!dontKnow && !answer.trim())) return;
+    setBusy(dontKnow ? "Saving “Don’t know”…" : "Saving answer and assessing…"); setError("");
+    // Keep the same key while retrying the same choice, so a network retry cannot save a duplicate attempt.
+    if (dontKnow ? !submission.current?.dont_know : !submission.current || submission.current.dont_know || submission.current.text !== answer)
+      submission.current = dontKnow ? { submission_id: requestId(), text: "", dont_know: true } : { submission_id: requestId(), text: answer };
     try {
       const saved = await api<Review>(`/exercises/${question.id}/attempts`, submission.current);
-      action("Submitted an answer and revealed the review"); setReview(saved); remember("attempt", saved.answer.id);
+      action(dontKnow ? "Chose “Don’t know” and revealed the review" : "Submitted an answer and revealed the review"); setReview(saved); remember("attempt", saved.answer.id);
+      if (dontKnow) setAnswer("");
       setHistory(items => [saved.answer, ...items.filter(item => item.id !== saved.answer.id)].slice(0, 20));
       if (practiceQueue) void loadFailedQuestions(0);
     } catch (failure) { setError(message(failure)); }
@@ -223,14 +226,14 @@ export function SentenceExercise({ practiceQueue = false }: { practiceQueue?: bo
           <p className={cx("sentence-prompt")} lang="zh-CN"><ExploreText text={question.mandarin} enabled={!!review} /></p>
           <div className={cx("listen-actions")}><button className={cx("button secondary")} disabled={sound.loading} onClick={() => void listen()}><Icon name="sound" size={18} />{sound.loading ? "Loading audio…" : sound.playing ? "Replay" : "Listen"}</button>{sound.playing && <button className={cx("button secondary")} onClick={stop}>Stop</button>}</div>
           <label className={cx("translation-draft")}>Your English translation<textarea value={answer} disabled={!!busy || !!review} onChange={event => setAnswer(event.target.value)} maxLength={8000} rows={4} placeholder="Write the meaning in your own words…" /></label>
-          {!review && <button className={cx("button primary")} disabled={!!busy || !answer.trim()} onClick={() => void submit()}>Submit for grading</button>}
-          {review && <div className={cx("character-feedback")} role="status"><p><strong>Reference:</strong> {review.question.content.english}</p><p lang="zh-Latn-pinyin">{review.question.content.pinyin}</p>{completed?.result ? <><strong>Correctness: {completed.result.correctness.toFixed(2)} / 1</strong><p>{completed.result.feedback}</p><p><strong>Suggested translation:</strong> {completed.result.suggested_translation}</p></> : <><strong>Your answer is saved.</strong><p>Assessment is {review.assessments[0]?.state ?? "pending"}. This has not been counted as an incorrect answer.</p><button className={cx("button secondary")} disabled={!!busy} onClick={() => void retry()}>Retry assessment</button></>}</div>}
+          {!review && <div className={cx("listen-actions")}><button className={cx("button primary")} disabled={!!busy || !answer.trim()} onClick={() => void submit()}>Submit for grading</button><button className={cx("button secondary")} disabled={!!busy} onClick={() => void submit(true)}>Don’t know</button></div>}
+          {review && <div className={cx("character-feedback")} role="status"><p><strong>Reference:</strong> {review.question.content.english}</p><p lang="zh-Latn-pinyin">{review.question.content.pinyin}</p>{review.answer.dont_know && <p><strong>You chose “Don’t know”.</strong> This counts as 0 and the sentence stays in your practice queue.</p>}{completed?.result ? <><strong>Correctness: {completed.result.correctness.toFixed(2)} / 1</strong>{!review.answer.dont_know && <><p>{completed.result.feedback}</p><p><strong>Suggested translation:</strong> {completed.result.suggested_translation}</p></>}</> : <><strong>Your answer is saved.</strong><p>Assessment is {review.assessments[0]?.state ?? "pending"}. This has not been counted as an incorrect answer.</p><button className={cx("button secondary")} disabled={!!busy} onClick={() => void retry()}>Retry assessment</button></>}</div>}
         </> : <p>{practiceQueue ? "Choose a saved question above, or generate a new sentence. Every new answer is saved as a separate attempt." : "Generate a sentence when you’re ready. Your answer and feedback will be saved to your Chapp account."}</p>}
         <div className={cx("exercise-bottom")}><span role="status">{busy || (review ? "Saved to your account" : "Meaning matters; imperfect English is welcome.")}</span><button className={cx("button primary")} disabled={!!busy || !ready} onClick={() => void generate()}><Icon name="spark" size={17} />{question ? "Generate next sentence" : "Generate sentence"}</button></div>
       </div>
       {sound.error && <p className={cx("speech-status")} role="alert">{sound.error}</p>}
       <details className={cx("audio-settings")}><summary>Audio settings</summary><div className={cx("audio-controls")}><label>Playback speed<select value={rate} onChange={event => { stop(); setRate(Number(event.target.value)); }}><option value={0.65}>Extra slow</option><option value={0.8}>Slow</option><option value={1}>Normal</option></select></label></div></details>
     </section>
-    <section className={cx("panel exercise-panel")} style={{ marginTop: 24 }}><div className={cx("exercise-toolbar")}><div><h2>Saved attempts</h2><p>Your most recent submissions, including answers awaiting grading.</p></div></div><div className={cx("exercise-body")}>{history.length ? <ul>{history.map(item => <li key={item.id}><button className={cx("button secondary")} disabled={!!busy} onClick={() => void openAttempt(item.id)}>{item.text.slice(0, 90)} · {new Date(item.submitted_at).toLocaleString()}</button></li>)}</ul> : <p>No submitted answers yet.</p>}</div></section>
+    <section className={cx("panel exercise-panel")} style={{ marginTop: 24 }}><div className={cx("exercise-toolbar")}><div><h2>Saved attempts</h2><p>Your most recent submissions, including answers awaiting grading.</p></div></div><div className={cx("exercise-body")}>{history.length ? <ul>{history.map(item => <li key={item.id}><button className={cx("button secondary")} disabled={!!busy} onClick={() => void openAttempt(item.id)}>{item.dont_know ? "Don’t know" : item.text.slice(0, 90)} · {new Date(item.submitted_at).toLocaleString()}</button></li>)}</ul> : <p>No submitted answers yet.</p>}</div></section>
   </div>;
 }

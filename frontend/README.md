@@ -105,5 +105,8 @@ requests in this browser test are mocked; it does not make paid provider calls.
 workflow. Learners can revisit an original question with a fresh answer or explicitly
 generate a new sentence. References are hidden for each fresh attempt. Queue paging,
 reload restoration, assessment retry, empty/error states, and Anki-refresh outages
-are covered by tests/practice-queue.browser.cjs. Run it like the learning-support
+are covered by tests/practice-queue.browser.cjs. Sentence and Daily practice also offer a "Don't know"
+button: it sends dont_know with empty text (any typed draft is discarded), the
+backend scores it 0 without an AI call, and the question stays in the practice
+queue; the same browser test covers it. Run it like the learning-support
 browser regression with the same optional origin/output environment settings.

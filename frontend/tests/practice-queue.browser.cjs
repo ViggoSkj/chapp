@@ -17,13 +17,15 @@ const calls = [];
 const errors = [];
 function reviewFor(question, body, completed) {
   submissionCount++;
+  const dontKnow = body.dont_know === true;
   return {
     answer: { id: '10000000-0000-4000-8000-' + String(submissionCount).padStart(12, '0'),
-      exercise_id: question.id, text: body.text, submitted_at: '2026-10-31T14:00:00Z' },
+      exercise_id: question.id, text: body.text, submitted_at: '2026-10-31T14:00:00Z', dont_know: dontKnow },
     question: { id: question.id, difficulty: question.difficulty,
       content: { mandarin: question.mandarin, english: 'PRIVATE_REFERENCE', pinyin: 'PRIVATE_PINYIN' } },
-    assessments: [{ id: 'run-' + submissionCount, state: completed ? 'completed' : 'failed',
-      result: completed ? { correctness: 1, feedback: 'You preserved the meaning.', suggested_translation: 'Hello.' } : undefined }],
+    assessments: [{ id: 'run-' + submissionCount, state: completed || dontKnow ? 'completed' : 'failed',
+      result: dontKnow ? { correctness: 0, feedback: 'You chose "Don\'t know".', suggested_translation: 'PRIVATE_REFERENCE' }
+        : completed ? { correctness: 1, feedback: 'You preserved the meaning.', suggested_translation: 'Hello.' } : undefined }],
   };
 }
 (async () => {
@@ -56,7 +58,7 @@ function reviewFor(question, body, completed) {
       const question = sourceQuestions.find(item => item.id === id);
       result = reviewFor(question, body, submissionCount === 0);
       reviews.set(result.answer.id, result);
-      if (result.assessments[0].state === 'completed') failed = failed.filter(item => item.id !== id);
+      if (result.assessments[0].result?.correctness === 1) failed = failed.filter(item => item.id !== id);
     } else if (endpoint.endsWith('/assessment-retries')) {
       const id = endpoint.split('/')[2];
       const previous = reviews.get(id);
@@ -132,6 +134,20 @@ function reviewFor(question, body, completed) {
     await page.getByLabel('Your English translation').waitFor();
     await page.screenshot({ path: out + '/practice-queue-mobile.png', fullPage: true });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    await page.getByLabel('Your English translation').fill('half an idea');
+    await page.getByRole('button', { name: 'Don’t know', exact: true }).click();
+    await page.getByText('You chose “Don’t know”.', { exact: true }).waitFor();
+    await page.getByText('Correctness: 0.00 / 1', { exact: true }).waitFor();
+    await page.getByText('PRIVATE_REFERENCE', { exact: false }).first().waitFor();
+    const dontKnow = calls.filter(call => call.endpoint.endsWith('/attempts') && call.method === 'POST').at(-1);
+    assert.equal(dontKnow.body.dont_know, true);
+    assert.equal(dontKnow.body.text, '', 'A typed draft must not be sent with a "Don\'t know" choice.');
+    assert.equal(await page.getByLabel('Your English translation').inputValue(), '', 'The discarded draft must not look like the saved answer.');
+    assert.equal(await page.getByText('Suggested translation:', { exact: false }).count(), 0);
+    assert.ok(failed.some(item => item.id === sourceQuestions[0].id), '"Don\'t know" keeps the question in the practice queue.');
+    await page.getByRole('button', { name: /^Don’t know · / }).waitFor();
+    await page.screenshot({ path: out + '/practice-dont-know-mobile.png', fullPage: true });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
 
     queueUnavailable = true;
     await page.goto(origin + '/practice');
@@ -148,7 +164,7 @@ function reviewFor(question, body, completed) {
     assert.deepEqual(errors, []);
     console.log(JSON.stringify({ passed: true, checks: ['real queue pagination', 'source outage isolation',
       'fresh original-question attempts', 'reload restoration', 'correct-answer removal', 'ungraded outage and assessment retry',
-      'explicit generation', 'mobile layout', 'queue errors and empty state', 'signed-out state'], requests: calls.length }));
+      'explicit generation', 'mobile layout', "don't know scored 0 and kept in queue", 'queue errors and empty state', 'signed-out state'], requests: calls.length }));
   } catch (error) {
     await page.screenshot({ path: out + '/practice-queue-failure.png', fullPage: true });
     console.error(JSON.stringify({ errors, calls, text: await page.locator('body').innerText() }));
