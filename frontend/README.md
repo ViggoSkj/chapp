@@ -203,3 +203,17 @@ Reopening restores saved controls. Listening is live; only Anki Reviews is a dem
 
 tests/listening.browser.cjs covers keyboard controls, hidden content/context,
 replay highlighting, saved reload, filler/refusal errors, retry and mobile layout.
+
+
+## Playback warm-up
+
+Shared audio playback decodes cached audio locally and creates a WAV with a
+600 ms silent prefix in the same media stream. This gives audio outputs time to
+wake without fading/trimming speech. Highlighting subtracts that prefix from
+audio.currentTime, preserving stored provider timestamps and slow playback.
+Original cache bytes and timing data are unchanged. Replay starts from the same
+original data, and stale asynchronous decoding cannot restart cancelled audio.
+Unsupported decoding falls back to original media with zero timing offset.
+tests/audio-warmup.test.mjs verifies PCM/header/sample preservation and fallback;
+tests/audio-warmup.browser.cjs verifies real browser decoding, lead-in/highlight
+timing, replay, cancellation during decoding, and character-panel playback.

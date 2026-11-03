@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { prepareAudioPlayback } from "../lib/audio-warmup";
 import { learningApi } from "../lib/learning-api";
 import { activeAudioCharacter, readAudioTimings } from "../lib/audio-timing";
 
@@ -43,11 +44,14 @@ export function useCachedAudio(contextKey: string) {
       const timings = readAudioTimings(sound.timings);
       const text = timings.map(timing => timing.character).join("");
       const bytes = Uint8Array.from(atob(sound.audio_data), value => value.charCodeAt(0));
-      const url = URL.createObjectURL(new Blob([bytes], { type: sound.content_type })); source.current = url;
+      const prepared = await prepareAudioPlayback(bytes, sound.content_type);
+      // Decoding is asynchronous too: stop/navigation/replay must invalidate it before creating media.
+      if (ticket !== sequence.current) return false;
+      const url = URL.createObjectURL(prepared.blob); source.current = url;
       const audio = new Audio(url); current.current = audio; audio.playbackRate = rate;
       const update = () => {
         if (ticket !== sequence.current) return;
-        const index = audio.paused || audio.ended ? null : activeAudioCharacter(timings, audio.currentTime);
+        const index = audio.paused || audio.ended ? null : activeAudioCharacter(timings, audio.currentTime - prepared.leadInSeconds);
         setHighlight(previous => previous?.key === contextKey && previous.text === text && previous.index === index
           ? previous : { key: contextKey, text, index });
       };

@@ -148,3 +148,15 @@ Settings feed shared character supply and sentence generation. A formatter choos
 reading or hidden-sentence audio; answer interpretation, saved completion and
 performance evaluation remain shared. The shortest setting still means natural
 3–5-character phrases, never random strings or length-padding repetition.
+
+
+## Audio warm-up (owner request 2026-11-03)
+
+The beginning of speech was hard to hear. Shared cached playback now prepends
+600 ms of actual silence in the same local media stream, allowing the output
+device to wake before the first syllable. Never fade or trim that syllable.
+Subtract the media lead-in from the highlighting clock; before speech begins no
+character is highlighted. Apply to sentence/listening/Daily practice and character
+audio, at every speed and replay. Navigation/stop cancels pending decoding too.
+Stored audio/timings remain original, so no cache deletion or paid regeneration
+is required. Browsers unable to decode locally retain original playback.
