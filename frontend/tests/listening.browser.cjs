@@ -58,6 +58,8 @@ const uuid = () => '00000000-0000-4000-8000-' + String(++id).padStart(12, '0');
   });
   const noOverflow = async () => assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false);
   const hidden = async () => {
+    // Wait for the asynchronous next-exercise transition to remove the previous revealed transcript.
+    await page.waitForFunction(() => !document.querySelector('p[lang="zh-CN"]'));
     assert.equal(await page.locator('p[lang="zh-CN"]').count(), 0);
     assert.equal(await page.getByText('I am well.', { exact: true }).count(), 0);
     assert.equal(await page.getByText('wǒ hěn hǎo', { exact: true }).count(), 0);
