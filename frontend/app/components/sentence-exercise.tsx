@@ -60,7 +60,7 @@ export function SentenceExercise({ practiceQueue = false }: { practiceQueue?: bo
   const [notice, setNotice] = useState("");
   const [ready, setReady] = useState(false);
   const [rate, setRate] = useState(0.8);
-  const sound = useCachedAudio(question?.id ?? "sentence");
+  const sound = useCachedAudio(state + ":" + (question?.id ?? "sentence"));
   const { action } = useLearningSupport();
   const submission = useRef<{ submission_id: string; text: string; dont_know?: boolean } | null>(null);
   const retryId = useRef<string | null>(null);
@@ -223,7 +223,7 @@ export function SentenceExercise({ practiceQueue = false }: { practiceQueue?: bo
       <div className={cx("exercise-body")}>
         {question ? <>
           <div className={cx("exercise-meta")}><span className={cx("eyebrow")}>WHAT DOES THIS SENTENCE MEAN?</span><span className={cx("exercise-level")}>{question.difficulty}</span></div>
-          <p className={cx("sentence-prompt")} lang="zh-CN"><ExploreText text={question.mandarin} enabled={!!review} /></p>
+          <p className={cx("sentence-prompt")} lang="zh-CN"><ExploreText text={question.mandarin} enabled={!!review} activeIndex={sound.spokenText === question.mandarin ? sound.activeCharacterIndex : null} /></p>
           <div className={cx("listen-actions")}><button className={cx("button secondary")} disabled={sound.loading} onClick={() => void listen()}><Icon name="sound" size={18} />{sound.loading ? "Loading audio…" : sound.playing ? "Replay" : "Listen"}</button>{sound.playing && <button className={cx("button secondary")} onClick={stop}>Stop</button>}</div>
           <label className={cx("translation-draft")}>Your English translation<textarea value={answer} disabled={!!busy || !!review} onChange={event => setAnswer(event.target.value)} maxLength={8000} rows={4} placeholder="Write the meaning in your own words…" /></label>
           {!review && <div className={cx("listen-actions")}><button className={cx("button primary")} disabled={!!busy || !answer.trim()} onClick={() => void submit()}>Submit for grading</button><button className={cx("button secondary")} disabled={!!busy} onClick={() => void submit(true)}>Don’t know</button></div>}

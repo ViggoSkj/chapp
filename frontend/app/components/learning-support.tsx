@@ -51,13 +51,19 @@ export function useLearningPage(page: LearningPage) {
   useEffect(() => { publish(JSON.parse(serialized) as LearningPage); }, [publish, serialized]);
 }
 
-export function ExploreText({ text, enabled }: { text: string; enabled?: boolean }) {
+/** Highlight by original Unicode-scalar position, so repeated characters and supplementary Han stay distinct. */
+export function ExploreText({ text, enabled, activeIndex = null }: { text: string; enabled?: boolean; activeIndex?: number | null }) {
   const support = useLearningSupport();
   const active = enabled ?? support.page.revealed;
-  return <>{Array.from(text).map((character, index) => active && /\p{Script=Han}/u.test(character)
-    ? <button key={index} type="button" className={styles.character} aria-label={"Explore " + character}
-        onClick={() => support.select(character)}>{character}</button>
-    : <span key={index}>{character}</span>)}</>;
+  return <>{Array.from(text).map((character, index) => {
+    const speaking = activeIndex === index;
+    return active && /\p{Script=Han}/u.test(character)
+      ? <button key={index} type="button" className={`${styles.character}${speaking ? ` ${styles.speaking}` : ""}`}
+          data-speaking={speaking ? "true" : undefined} aria-current={speaking ? "true" : undefined}
+          aria-label={"Explore " + character} onClick={() => support.select(character)}>{character}</button>
+      : <span key={index} className={speaking ? styles.speaking : undefined} data-speaking={speaking ? "true" : undefined}
+          aria-current={speaking ? "true" : undefined}>{character}</span>;
+  })}</>;
 }
 
 function CharacterDetails({ character, page, actions, close, action }: {
@@ -86,7 +92,7 @@ function CharacterDetails({ character, page, actions, close, action }: {
 
   return <section className={styles.characterCard} role="dialog" aria-label={"About " + character}
     onKeyDown={event => { if (event.key === "Escape") close(); }}>
-    <div className={styles.cardHeading}><div><span className={styles.eyebrow}>EXPLORE A CHARACTER</span><h2 lang="zh-Hans">{character}</h2></div>
+    <div className={styles.cardHeading}><div><span className={styles.eyebrow}>EXPLORE A CHARACTER</span><h2 lang="zh-Hans"><span className={sound.spokenText === character && sound.activeCharacterIndex === 0 ? styles.speaking : undefined} data-speaking={sound.spokenText === character && sound.activeCharacterIndex === 0 ? "true" : undefined}>{character}</span></h2></div>
       <button ref={closeButton} type="button" className={styles.close} onClick={close} aria-label="Close character details">×</button></div>
     {state !== "signed-in" ? <p><Link href="/login">Sign in</Link> to see meanings and hear this character.</p> : <>
       {result?.pronunciation && <p className={styles.pinyin} lang={result.pronunciation.language}>{result.pronunciation.text}</p>}

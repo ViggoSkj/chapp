@@ -112,3 +112,15 @@ switches to real data; being signed in alone does not make a demo page live.
   valid source clearly dated. Account changes hide the previous account's rows.
 - Ten-expression pages keep all visible text in bounded Unicode-safe learning
   context. Vocabulary chat and provider echoes must not persist Anki expressions.
+
+
+## Spoken-character highlighting (2026-11-03)
+
+- Highlight the current original character using server-stored provider timing
+  and the audio element's currentTime. Keep correct positions for repeated and
+  supplementary Han characters and synchronize at every playback speed.
+- Share this behavior across real sentence/Daily practice and character-panel
+  audio. Before reveal, highlighting does not enable character explanations.
+- Stop/pause/buffering, completion, playback errors and navigation clear highlights;
+  cancelled/stale responses never update the next exercise. Missing timing data
+  must not produce guessed highlighting. Standalone demo browser speech is unchanged.

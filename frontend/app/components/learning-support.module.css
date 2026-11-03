@@ -223,3 +223,6 @@
 
 .launcher:hover{
   color:var(--background)}
+
+/* Shared playback emphasis preserves the reveal-state interaction rules. */
+.speaking, .character.speaking { background: var(--yellow); color: var(--background); border-radius: 3px; box-shadow: 0 0 0 2px var(--yellow); }

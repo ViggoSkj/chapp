@@ -162,3 +162,21 @@ source outages, empty/error/account states and desktop/mobile layout. Run it wit
 the same LEARNING_TEST_ORIGIN / LEARNING_TEST_OUTPUT options as the other portable
 browser regressions. tests/vocabulary.test.mjs verifies bounded Unicode-safe chat
 context without truncating any row in the ten-expression view.
+
+
+## Audio-synchronized characters
+
+Cached speech responses include original-character start/end intervals. The
+shared audio hook follows media time so highlighting stays synchronized at
+slower rates, through replay and seeks. Sentence and Daily practice highlight
+the prompt while keeping before-reveal characters noninteractive. The character
+panel highlights its own selected character during playback. Timings and audio
+are stored together in the backend database; the timestamp provider version
+prevents reuse of old audio-only entries.
+
+tests/audio-timing.test.mjs covers timing validation, repeated/supplementary
+characters, silent gaps and boundaries. tests/timed-audio.browser.cjs uses a
+deterministic media clock to verify speed, pause/buffering/replay/stop, reveal
+rules, character audio, stale events, invalid data and desktop/mobile layout.
+Run it with the same LEARNING_TEST_ORIGIN / LEARNING_TEST_OUTPUT options as the
+other browser regressions. No live synthesis is needed for these regressions.
