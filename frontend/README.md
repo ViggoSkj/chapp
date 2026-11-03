@@ -39,8 +39,8 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 The frontend provides /login, a signed-in header, sign-out, live account and Anki
 status on /connections, and the existing authenticated sentence/history flows.
-Overview and Progress use saved practice aggregates. Vocabulary, Anki reviews,
-and Listening remain labelled demo data.
+Overview and Progress use saved practice aggregates. Vocabulary reads reviewed expressions from Anki. Anki reviews and Listening
+remain labelled demo data.
 
 Configure the Next.js server with CHAP_AUTH_ORIGIN (the internal Neuron origin)
 and CHAP_PUBLIC_ORIGIN (the browser-facing origin). The deployed values are
@@ -135,3 +135,30 @@ frontend on port 3010 and run it with Playwright available through Node resoluti
     node tests/progress.browser.cjs
 
 It uses LEARNING_TEST_ORIGIN and LEARNING_TEST_OUTPUT like the other browser tests.
+
+
+## Personalized practice and live Vocabulary
+
+New sentences give extra emphasis to eligible characters from recent incorrect,
+partly correct, or "Don't know" answers. Successful answers reduce that emphasis.
+The backend reads up to 200 recent attempts, counts each question once, and keeps
+weights within the current reviewed Anki character boundary. It does not claim
+character mastery or guarantee that a requested character appears in every sentence.
+
+Vocabulary now reads GET /chapbackend-api/vocabulary with literal expression
+search, pagination, distinct expression/character counts, and source-read time.
+Refresh from Anki explicitly uses the existing read-only refresh operation.
+Source outages are shown as errors; a failed refresh preserves the labelled last
+successful snapshot. New/learning/relearning cards are excluded. Only expression
+fields are currently mapped, so pinyin, dictionary definitions and mastery labels
+are not invented. Individual character exploration uses the shared AI companion.
+
+Anki expressions remain in memory. Vocabulary-help request/response payloads are
+omitted from stored provider evidence so echoed expressions are not persisted;
+only run/component/phase metadata is retained. Chat stays in the current session.
+
+tests/vocabulary.browser.cjs covers search, paging, character context, refresh,
+source outages, empty/error/account states and desktop/mobile layout. Run it with
+the same LEARNING_TEST_ORIGIN / LEARNING_TEST_OUTPUT options as the other portable
+browser regressions. tests/vocabulary.test.mjs verifies bounded Unicode-safe chat
+context without truncating any row in the ten-expression view.

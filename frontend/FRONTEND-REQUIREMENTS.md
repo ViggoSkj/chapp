@@ -61,7 +61,7 @@ Owner requirement added on 2026-10-27: every frontend page that is still in demo
 mode must show a conspicuous Demo sticker/badge. Keep it visible on small screens
 and explain that the page uses sample content rather than live study data.
 
-Implemented for Vocabulary, Anki reviews, and Listening practice.
+Implemented for Anki reviews and Listening practice. Vocabulary now reads reviewed Anki expressions.
 Overview and Progress now use real saved practice aggregates. Login, Connections,
 Sentence practice, Daily practice, Overview, and Progress use live services and
 must not be marked Demo. Update this classification when a page
@@ -98,3 +98,17 @@ switches to real data; being signed in alone does not make a demo page live.
   submission counts. Current learner storage coverage is explained on the page.
 - Loading, empty, error, signed-out and unlinked states contain no demo fallback.
   Viewing or refreshing progress must not invoke paid providers or refresh Anki.
+
+
+## Personalized practice and live vocabulary (2026-11-03)
+
+- New sentence generation uses recent sentence results to guide character emphasis
+  within the reviewed Anki boundary. Corrections and successful answers reduce it.
+- Vocabulary displays actual reviewed expressions, with search, pagination,
+  source-read time and explicit refresh. No sample mastery, pinyin or meanings are
+  substituted for missing mapped fields. Shared character explanations remain AI-labelled.
+- Vocabulary has no Demo banner. Anki reviews and Listening retain their banners.
+- Loading/outage states show no fabricated rows. A failed refresh keeps the last
+  valid source clearly dated. Account changes hide the previous account's rows.
+- Ten-expression pages keep all visible text in bounded Unicode-safe learning
+  context. Vocabulary chat and provider echoes must not persist Anki expressions.

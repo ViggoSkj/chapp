@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
-import { DetailPage } from "../components/workspace";
+import { Vocabulary } from "../components/vocabulary";
 
-export const metadata: Metadata = {
-  title: "Vocabulary — Mando",
-};
+export const metadata: Metadata = { title: "Vocabulary — Mando" };
 
 export default function Page() {
-  return <DetailPage section="vocabulary" />;
+  return <Vocabulary />;
 }

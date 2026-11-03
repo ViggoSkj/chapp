@@ -109,7 +109,7 @@ export function ProgressDashboard({ overview = false }: { overview?: boolean }) 
         <p className={styles.updated}>Updated {new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(progress.as_of))} UTC</p>
       </> : null}
     {overview && <section className={`panel detail-panel ${styles.toolkit}`}><h2>Your learning toolkit</h2><div>
-      <Link className="button secondary" href="/sentences">Sentence practice</Link><Link className="button secondary" href="/practice">Daily practice</Link><Link className="button secondary" href="/progress">Your progress</Link><Link className="button secondary" href="/connections">Connections</Link>
-    </div><p>Explore <Link href="/vocabulary">Vocabulary</Link>, <Link href="/reviews">Anki reviews</Link>, or <Link href="/listening">Listening</Link> · these modes currently show demo content.</p></section>}
+      <Link className="button secondary" href="/sentences">Sentence practice</Link><Link className="button secondary" href="/practice">Daily practice</Link><Link className="button secondary" href="/progress">Your progress</Link><Link className="button secondary" href="/vocabulary">Your vocabulary</Link><Link className="button secondary" href="/connections">Connections</Link>
+    </div><p>Explore <Link href="/reviews">Anki reviews</Link> or <Link href="/listening">Listening</Link> · these modes currently show demo content.</p></section>}
   </>;
 }

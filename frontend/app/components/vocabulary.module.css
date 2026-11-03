@@ -1,0 +1,20 @@
+.panel { min-width: 0; }
+.toolbar, .search { display: flex; align-items: center; gap: 12px; }
+.toolbar { justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; }
+.search { flex: 1; flex-wrap: wrap; }
+.search input { width: 100%; min-width: 0; }
+.search > label { flex: 1; min-width: 160px; max-width: 390px; }
+.summary { display: flex; gap: 40px; margin-bottom: 20px; flex-wrap: wrap; }
+.summary > div { display: flex; flex-direction: column; gap: 6px; }
+.summary strong { font-size: 28px; }
+.summary span { color: var(--muted); font-size: 12px; }
+.note, .notice { color: var(--muted); font-size: 12px; line-height: 1.8; margin: 16px 0; }
+.table { width: 100%; table-layout: fixed; }
+.table th:last-child, .table td:last-child { width: 140px; }
+.table td:first-child { font-size: 22px; line-height: 1.9; overflow-wrap: anywhere; }
+.pagination { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 24px; font-size: 12px; }
+.pagination > div { display: flex; gap: 10px; flex-wrap: wrap; }
+.empty { padding: 24px 0; }
+@media(max-width: 640px) { .toolbar, .pagination { align-items: flex-start; flex-direction: column; } .search { width: 100%; } .search > label { min-width: 0; } .table th:last-child, .table td:last-child { width: 105px; } .table th, .table td { padding-left: 10px; padding-right: 10px; } }
+
+.table th { white-space: normal; overflow-wrap: break-word; }
