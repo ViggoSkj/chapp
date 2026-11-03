@@ -39,7 +39,8 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 The frontend provides /login, a signed-in header, sign-out, live account and Anki
 status on /connections, and the existing authenticated sentence/history flows.
-The overview, vocabulary, review and progress examples remain labelled demo data.
+Overview and Progress use saved practice aggregates. Vocabulary, Anki reviews,
+and Listening remain labelled demo data.
 
 Configure the Next.js server with CHAP_AUTH_ORIGIN (the internal Neuron origin)
 and CHAP_PUBLIC_ORIGIN (the browser-facing origin). The deployed values are
@@ -110,3 +111,27 @@ button: it sends dont_know with empty text (any typed draft is discarded), the
 backend scores it 0 without an AI call, and the question stays in the practice
 queue; the same browser test covers it. Run it like the learning-support
 browser regression with the same optional origin/output environment settings.
+
+
+## Real Overview and Progress
+
+Both routes use authenticated GET /chapbackend-api/progress. They display saved
+submission totals, latest-valid-grade averages, questions needing practice, UTC
+current/best streaks, and 7/28-day activity charts with accessible daily counts.
+Ungraded attempts are shown separately; an explicit "Don't know" is a completed
+zero-score attempt. No vocabulary mastery, Anki due counts,
+study duration, or sample milestones are inferred. Data covers the current learner
+storage; older history has not been migrated. Remaining sample modes are clearly
+identified in the Overview toolkit and keep their route-level Demo banners.
+
+The screens handle loading, empty history, signed-out/unlinked accounts, account
+outages, progress failures and explicit refresh without making provider calls or
+refreshing Anki. API failures never fall back to demo numbers. Progress data is
+scoped to the current account and discarded when its identity changes.
+
+The portable mocked browser regression is tests/progress.browser.cjs. Start the
+frontend on port 3010 and run it with Playwright available through Node resolution:
+
+    node tests/progress.browser.cjs
+
+It uses LEARNING_TEST_ORIGIN and LEARNING_TEST_OUTPUT like the other browser tests.

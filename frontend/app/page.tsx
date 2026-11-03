@@ -1,5 +1,5 @@
-import { Dashboard } from "./components/workspace";
+import { ProgressDashboard } from "./components/progress";
 
 export default function Home() {
-  return <Dashboard />;
+  return <ProgressDashboard overview />;
 }

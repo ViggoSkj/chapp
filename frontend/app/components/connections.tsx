@@ -41,6 +41,6 @@ export function Connections() {
         {error && <p className="account-error" role="alert">{error}</p>}
       </section>
     </div>
-    <p className="login-note">Vocabulary, reviews, and progress pages still contain labelled example data. Sentence practice and saved attempts use your account.</p>
+    <p className="login-note">Overview, Progress, Sentence practice, and Daily practice use your saved account data. Vocabulary, Anki reviews, and Listening still contain labelled example content.</p>
   </>;
 }

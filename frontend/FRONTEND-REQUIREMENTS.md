@@ -61,9 +61,10 @@ Owner requirement added on 2026-10-27: every frontend page that is still in demo
 mode must show a conspicuous Demo sticker/badge. Keep it visible on small screens
 and explain that the page uses sample content rather than live study data.
 
-Implemented for Overview, Vocabulary, Anki reviews, Progress,
-and Listening practice. Daily practice now uses real saved questions. Login, Connections, Sentence practice, and Daily practice use live
-services and must not be marked Demo. Update this classification when a page
+Implemented for Vocabulary, Anki reviews, and Listening practice.
+Overview and Progress now use real saved practice aggregates. Login, Connections,
+Sentence practice, Daily practice, Overview, and Progress use live services and
+must not be marked Demo. Update this classification when a page
 switches to real data; being signed in alone does not make a demo page live.
 
 
@@ -84,3 +85,16 @@ switches to real data; being signed in alone does not make a demo page live.
 - Completed fully correct answers leave the queue. Failed or unfinished grading does not count as an incorrect new answer.
 - Saved practice remains usable if Anki refresh fails. Queue errors, an empty queue, source refresh notices, and saved-answer state remain distinct.
 - The existing shared chat, post-reveal character exploration, and database-cached audio also apply to this route.
+
+
+## Real progress (2026-11-03)
+
+- Overview and Progress share authenticated saved-practice totals and charts.
+- Count original submissions once; average only latest valid completed grades.
+  Assessment retries update an answer's grade, while failures stay ungraded.
+- Show questions to revisit and current/best practice streaks. Activity and streaks
+  explicitly use UTC submission days, including zero days in the chart.
+- Never infer learned vocabulary, study duration, due Anki cards, or mastery from
+  submission counts. Current learner storage coverage is explained on the page.
+- Loading, empty, error, signed-out and unlinked states contain no demo fallback.
+  Viewing or refreshing progress must not invoke paid providers or refresh Anki.

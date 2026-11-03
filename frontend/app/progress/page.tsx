@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { DetailPage } from "../components/workspace";
+import { ProgressDashboard } from "../components/progress";
 
 export const metadata: Metadata = {
   title: "Your progress — Mando",
 };
 
 export default function Page() {
-  return <DetailPage section="progress" />;
+  return <ProgressDashboard />;
 }
