@@ -78,6 +78,7 @@ const errors = [];
     await page.locator('summary').filter({ hasText: 'Audio settings' }).click();
     await page.getByLabel('Playback speed').selectOption('0.65');
     await page.getByRole('button', { name: 'Listen', exact: true }).click();
+    await page.getByRole('button', { name: 'Replay', exact: true }).waitFor();
     assert.equal(await page.evaluate(() => window.audioTest.instances.at(-1).playbackRate), 0.65);
     await advance(0.35); await position(1);
     await page.evaluate(() => window.audioTest.instances.at(-1).pause());

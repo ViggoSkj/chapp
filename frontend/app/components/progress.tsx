@@ -110,6 +110,6 @@ export function ProgressDashboard({ overview = false }: { overview?: boolean }) 
       </> : null}
     {overview && <section className={`panel detail-panel ${styles.toolkit}`}><h2>Your learning toolkit</h2><div>
       <Link className="button secondary" href="/sentences">Sentence practice</Link><Link className="button secondary" href="/practice">Daily practice</Link><Link className="button secondary" href="/progress">Your progress</Link><Link className="button secondary" href="/vocabulary">Your vocabulary</Link><Link className="button secondary" href="/connections">Connections</Link>
-    </div><p>Explore <Link href="/reviews">Anki reviews</Link> or <Link href="/listening">Listening</Link> · these modes currently show demo content.</p></section>}
+    </div><p>Train your ear with <Link href="/listening">Listening practice</Link>, or explore <Link href="/reviews">Anki reviews</Link> · Anki reviews currently show demo content.</p></section>}
   </>;
 }

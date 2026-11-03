@@ -61,7 +61,7 @@ Owner requirement added on 2026-10-27: every frontend page that is still in demo
 mode must show a conspicuous Demo sticker/badge. Keep it visible on small screens
 and explain that the page uses sample content rather than live study data.
 
-Implemented for Anki reviews and Listening practice. Vocabulary now reads reviewed Anki expressions.
+Implemented for Anki reviews. Listening now uses live practice services. Vocabulary now reads reviewed Anki expressions.
 Overview and Progress now use real saved practice aggregates. Login, Connections,
 Sentence practice, Daily practice, Overview, and Progress use live services and
 must not be marked Demo. Update this classification when a page
@@ -73,7 +73,7 @@ switches to real data; being signed in alone does not make a demo page live.
 - Shared lower-right chat receives explicit current mode, reveal state and bounded recent actions.
 - Sentence practice, Daily practice, listening and vocabulary publish their visible content and enable individual character exploration after reveal.
 - Character panels show AI explanations and pinyin, with audio through the backend database sound cache. This implements the owner request for cached character sound; a separate dictionary provider is not configured.
-- Issued sentence playback also uses server-cached sound. Existing standalone demo listening keeps its browser voice controls.
+- Issued sentence playback also uses server-cached sound. Listening uses the same cached server audio as sentence practice.
 - Context switches clear prior conversation and character panels; desktop and mobile layouts and keyboard selection are covered by browser checks.
 - The chat uses the configured backend AI provider. Its conversation stays in the current browser session; provider execution evidence is recorded by the backend.
 
@@ -107,7 +107,7 @@ switches to real data; being signed in alone does not make a demo page live.
 - Vocabulary displays actual reviewed expressions, with search, pagination,
   source-read time and explicit refresh. No sample mastery, pinyin or meanings are
   substituted for missing mapped fields. Shared character explanations remain AI-labelled.
-- Vocabulary has no Demo banner. Anki reviews and Listening retain their banners.
+- Vocabulary has no Demo banner. Anki reviews retains its banner; Listening is now live.
 - Loading/outage states show no fabricated rows. A failed refresh keeps the last
   valid source clearly dated. Account changes hide the previous account's rows.
 - Ten-expression pages keep all visible text in bounded Unicode-safe learning
@@ -123,4 +123,18 @@ switches to real data; being signed in alone does not make a demo page live.
   audio. Before reveal, highlighting does not enable character explanations.
 - Stop/pause/buffering, completion, playback errors and navigation clear highlights;
   cancelled/stale responses never update the next exercise. Missing timing data
-  must not produce guessed highlighting. Standalone demo browser speech is unchanged.
+  must not produce guessed highlighting. Listening also uses timed server audio; its transcript stays hidden before reveal.
+
+
+## Live listening practice (owner request 2026-11-03)
+
+- Separate sentence length and character difficulty sliders. Start at 3–5 Chinese
+  characters and characters known well; length can increase independently through
+  36–60 characters. Settings apply to the next exercise and restore on saved reload.
+- Familiarity uses reviewed Anki intervals and recent practice results. Explain
+  this estimate; do not invent mastery or silently broaden an empty strongest set.
+- Hide Chinese/pinyin/meaning before answering, including the companion's context.
+  Submit an English meaning or Don't know, then reveal saved review and character
+  exploration. Use cached Mandarin audio with slow replay and after-reveal timed
+  highlighting. Retain listening mode for saved attempts and practice-queue retries.
+- Listening has no Demo badge. Anki Reviews remains a labelled demo.

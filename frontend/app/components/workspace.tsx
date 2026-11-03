@@ -8,7 +8,7 @@ import { sections } from "../lib/demo";
 
 export function Workspace({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isDemoPage = ["/reviews", "/listening"].includes(pathname);
+  const isDemoPage = ["/reviews"].includes(pathname);
   const navigation = [{ id: "", title: "Overview", icon: "grid" }, ...sections, { id: "connections", title: "Connections", icon: "plug" }];
   return <div className="workspace">
     <aside className="sidebar">

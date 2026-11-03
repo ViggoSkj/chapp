@@ -75,7 +75,7 @@ const errors = [];
     await page.getByRole('button', { name: 'Refresh progress' }).waitFor();
     assert.equal(await page.getByText('DEMO', { exact: true }).count(), 0);
     assert.match(await stat('Average score').innerText(), /75%/);
-    await page.getByText('these modes currently show demo content.', { exact: false }).waitFor();
+    await page.getByText('Anki reviews currently show demo content.', { exact: false }).waitFor();
     await noOverflow();
     await page.screenshot({ path: path.join(out, 'overview-mobile.png'), fullPage: true });
 

@@ -4,7 +4,7 @@ export const sections = [
   { id: "progress", title: "Your progress", icon: "chart", description: "See the bigger picture. Follow your study habits, vocabulary growth, retention, and progress toward your next milestone.", color: "lavender", metric: "12", unit: "day learning streak", action: "See your progress" },
   { id: "practice", title: "Daily practice", icon: "spark", description: "Make Mandarin part of your day. Practice useful expressions and recall words in a short, focused study session.", color: "butter", metric: "5 min", unit: "to build a little momentum", action: "Start practicing" },
   { id: "sentences", title: "Sentence practice", icon: "book", description: "Generate sentences at your level. Try a translation, then reveal the pinyin and English when you’re ready.", color: "sage", metric: "3", unit: "difficulty levels", action: "Practice sentences" },
-  { id: "listening", title: "Listening practice", icon: "sound", description: "Train your ear with spoken Mandarin. Choose the character you hear or listen to sentences with optional reveals.", color: "peach", metric: "2", unit: "listening modes", action: "Practice listening" },
+  { id: "listening", title: "Listening practice", icon: "sound", description: "Train your ear with Mandarin from reviewed characters. Adjust length and familiarity, then listen and translate.", color: "peach", metric: "3–5", unit: "characters to start", action: "Practice listening" },
 ] as const;
 
 export const words = [

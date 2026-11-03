@@ -180,3 +180,24 @@ deterministic media clock to verify speed, pause/buffering/replay/stop, reveal
 rules, character audio, stale events, invalid data and desktop/mobile layout.
 Run it with the same LEARNING_TEST_ORIGIN / LEARNING_TEST_OUTPUT options as the
 other browser regressions. No live synthesis is needed for these regressions.
+
+
+## Live listening practice
+
+/listening uses the shared saved-practice workflow with independent sliders for
+length (3–5, 6–10, 11–20, 21–35, 36–60 Han characters) and character familiarity.
+The easiest setting uses reviewed Anki intervals of at least 21 days and excludes
+recent practice mistakes; higher settings widen to 14/7/3 days then all reviewed
+characters. This is an explained familiarity estimate, not measured mastery.
+No familiar characters produces an explicit error rather than easier-looking demo
+content or silent expansion. Settings apply to the next exercise; saved question
+reload restores its controls. The server validates actual length and membership.
+
+Chinese/pinyin/meaning and chat transcript context stay hidden until a saved
+answer is revealed. Shared cached audio supports slow replay and revealed-character
+highlighting. Saved questions and failed Daily-practice retries retain audio-first
+mode. Listening is live; only Anki Reviews keeps its Demo badge.
+
+tests/listening.browser.cjs verifies keyboard sliders, before/after reveal,
+companion context, replay highlighting, saved reload, unavailable familiarity,
+idempotent network retries and desktop/mobile layout without live provider calls.
