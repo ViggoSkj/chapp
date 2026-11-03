@@ -9,6 +9,7 @@ const reviews = new Map();
 const generated = [];
 const errors = [];
 let unavailable = false;
+let badAudio = false;
 let uncertain = false;
 let id = 0;
 const uuid = () => '00000000-0000-4000-8000-' + String(++id).padStart(12, '0');
@@ -35,10 +36,11 @@ const uuid = () => '00000000-0000-4000-8000-' + String(++id).padStart(12, '0');
     else if (endpoint === '/exercises') {
       generated.push(body);
       if (uncertain) { uncertain = false; await route.abort('failed'); return; }
-      if (unavailable) { await route.fulfill({ status: 400, contentType: 'text/plain', body: 'no-familiar-listening-characters' }); return; }
+      if (unavailable) { await route.fulfill({ status: 400, contentType: 'text/plain', body: typeof unavailable === 'string' ? unavailable : 'no-eligible-characters' }); return; }
       result = { id: uuid(), mandarin: prompt, difficulty: body.difficulty, listening: body.listening };
       questions.set(result.id, result);
-    } else if (endpoint.endsWith('/sound')) result = { content_type: 'audio/mpeg', audio_data: 'SUQzAQ==', timings: Array.from(prompt).map((character, index) => ({ character, start_seconds: index * .3, end_seconds: (index + 1) * .3 })) };
+    } else if (endpoint.endsWith('/sound') && badAudio) { await route.fulfill({ status: 400, contentType: 'text/plain', body: 'invalid-listening-content' }); return; }
+    else if (endpoint.endsWith('/sound')) result = { content_type: 'audio/mpeg', audio_data: 'SUQzAQ==', timings: Array.from(prompt).map((character, index) => ({ character, start_seconds: index * .3, end_seconds: (index + 1) * .3 })) };
     else if (endpoint.startsWith('/exercises/') && endpoint.endsWith('/attempts')) {
       const question = questions.get(endpoint.split('/')[2]);
       result = { answer: { id: uuid(), exercise_id: question.id, text: body.text, dont_know: body.dont_know, submitted_at: '2026-11-03T15:00:00Z' },
@@ -104,10 +106,21 @@ const uuid = () => '00000000-0000-4000-8000-' + String(++id).padStart(12, '0');
     await page.setViewportSize({ width: 390, height: 844 });
     await noOverflow();
     await page.screenshot({ path: path.join(out, 'listening-mobile.png'), fullPage: true });
+    badAudio = true;
+    await page.getByRole('button', { name: 'Listen', exact: true }).click();
+    await page.getByRole('alert').filter({ hasText: 'saved listening exercise contains repeated filler' }).waitFor();
+    badAudio = false;
     unavailable = true;
     await page.getByRole('button', { name: 'Next listening exercise', exact: true }).click();
-    await page.getByRole('alert').filter({ hasText: 'No reviewed characters meet' }).waitFor();
-    await hidden(); unavailable = false;
+    await page.getByRole('alert').filter({ hasText: 'No reviewed characters are available' }).waitFor();
+    await hidden();
+    for (const [code, expected] of [['insufficient-listening-vocabulary', 'reviewed vocabulary is too small'], ['invalid-listening-content', 'A natural phrase could not'], ['no-natural-sentence', 'A natural phrase could not']]) {
+      unavailable = code;
+      await page.getByRole('button', { name: 'Next listening exercise', exact: true }).click();
+      await page.getByRole('alert').filter({ hasText: expected }).waitFor();
+      await hidden();
+    }
+    unavailable = false;
     uncertain = true;
     await page.getByRole('button', { name: 'Next listening exercise', exact: true }).click();
     await page.getByRole('alert').filter({ hasText: /fetch|request/i }).waitFor();
@@ -118,6 +131,11 @@ const uuid = () => '00000000-0000-4000-8000-' + String(++id).padStart(12, '0');
     await page.getByRole('button', { name: 'Don’t know', exact: true }).click();
     await page.getByText('wǒ hěn hǎo', { exact: true }).waitFor();
     await noOverflow();
+    const readingId = uuid();
+    questions.set(readingId, { id: readingId, mandarin: prompt, difficulty: 'beginner', listening: null });
+    await page.goto(origin + '/listening?exercise=' + readingId);
+    await page.getByRole('button', { name: 'Listen', exact: true }).waitFor();
+    await hidden();
     assert.deepEqual(errors, []);
     console.log('Listening desktop/mobile: independent sliders, hidden transcript/context, cached playback/highlight, saved reveal/reopen, empty familiarity and safe retry passed.');
   } finally { await browser.close(); }

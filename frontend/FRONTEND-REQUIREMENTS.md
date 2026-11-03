@@ -131,10 +131,20 @@ switches to real data; being signed in alone does not make a demo page live.
 - Separate sentence length and character difficulty sliders. Start at 3–5 Chinese
   characters and characters known well; length can increase independently through
   36–60 characters. Settings apply to the next exercise and restore on saved reload.
-- Familiarity uses reviewed Anki intervals and recent practice results. Explain
-  this estimate; do not invent mastery or silently broaden an empty strongest set.
+- Owner clarification: listening uses the same character supply, AI sentence
+  generator and evaluator as reading. Difficulty changes preferences toward
+  familiar characters; do not create a separate hard-filtered listening pool.
+  Other reviewed vocabulary remains available to form meaningful sentences.
 - Hide Chinese/pinyin/meaning before answering, including the companion's context.
   Submit an English meaning or Don't know, then reveal saved review and character
   exploration. Use cached Mandarin audio with slow replay and after-reveal timed
   highlighting. Retain listening mode for saved attempts and practice-queue retries.
 - Listening has no Demo badge. Anki Reviews remains a labelled demo.
+
+
+## Shared practice pipeline (owner diagram, 2026-11-03)
+
+Settings feed shared character supply and sentence generation. A formatter chooses
+reading or hidden-sentence audio; answer interpretation, saved completion and
+performance evaluation remain shared. The shortest setting still means natural
+3–5-character phrases, never random strings or length-padding repetition.

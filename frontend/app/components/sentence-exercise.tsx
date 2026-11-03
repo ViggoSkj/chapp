@@ -36,7 +36,9 @@ async function api<T>(path: string, body?: unknown, signal?: AbortSignal): Promi
       "anki-read-failed", "anki-action-failed", "openai-request-failed", "incomplete-provider-response", "provider-refused-or-empty",
       "source-field-schema-changed", "unsupported-expression-format", "invalid-mapped-expression", "source-too-large-narrow-selection-required"];
     const code = known.find(value => text.includes(value));
-    if (text.includes("no-familiar-listening-characters")) throw new ApiError("No reviewed characters meet this familiarity setting yet. Try a higher character difficulty, or keep reviewing in Anki. The easiest setting uses cards with at least 21 days between reviews and no recent practice mistakes.", true);
+    if (text.includes("no-eligible-characters")) throw new ApiError("No reviewed characters are available. Refresh your Anki source or review some words first.", true);
+    if (text.includes("insufficient-listening-vocabulary")) throw new ApiError("Your reviewed vocabulary is too small for a meaningful phrase. Keep reviewing words in Anki; characters won’t be repeated just to fill the length.", true);
+    if (text.includes("invalid-listening-content") || text.includes("no-natural-sentence")) throw new ApiError("A natural phrase could not be made with these settings. Adjust the difficulty or sentence length and try again.", true);
     if (text.includes("listening-length-mismatch")) throw new ApiError("The generated sentence did not fit your selected length. Please generate a new one.", true);
     if (text.includes("invalid-listening-options")) throw new ApiError("Choose a supported length and character difficulty, then try again.", true);
     throw new ApiError(code ? `Practice unavailable: ${code}.` : `The request could not complete (${response.status}). Your saved submissions remain available in history.`, !!code);
@@ -71,7 +73,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
   const submission = useRef<{ submission_id: string; text: string; dont_know?: boolean } | null>(null);
   const retryId = useRef<string | null>(null);
   const generationId = useRef<string | null>(null);
-  const audioFirst = question ? !!question.listening : listeningPractice;
+  const audioFirst = listeningPractice || !!question?.listening;
   const displayText = review?.question.content.mandarin ?? question?.mandarin ?? "";
   const completed = review?.assessments.find(run => run.state === "completed" && run.result);
 
@@ -246,7 +248,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
           <span className={cx("slider-scale")}><small>Know well</small><small>More challenging</small></span>
         </label>
         <p className={cx("listening-settings-note")}>{listeningHints[characterDifficulty]} Length counts Chinese characters, excluding punctuation. Changes apply to your next exercise.</p>
-        <details className={cx("listening-familiarity-note")}><summary>How familiarity works</summary><p>The easiest setting uses reviewed Anki cards with intervals of at least 21 days and excludes characters flagged by recent sentence results. Higher settings widen that boundary to 14, 7, 3 days, then all reviewed characters. This estimates familiarity from words and sentence results; it does not measure each character’s mastery. Missing review intervals never qualify for the easiest setting.</p></details>
+        <details className={cx("listening-familiarity-note")}><summary>How familiarity works</summary><p>Listening uses the same reviewed vocabulary, AI sentence generator and answer evaluation as reading practice. Easier settings favor familiar characters and simple phrases. Other reviewed characters remain available so the AI can form natural sentences. Length is independent; only the audio is presented before you answer.</p></details>
       </div>}
 
       <div className={cx("exercise-body")}>

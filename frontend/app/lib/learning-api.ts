@@ -15,6 +15,8 @@ export async function learningApi<T>(path: string, body: unknown, signal?: Abort
     if (response.status === 401) throw new Error("Sign in to ask questions and explore characters.");
     if (response.status === 403) throw new Error("Your account does not have access to this learning activity.");
     if (response.status === 404) throw new Error("This exercise is no longer available in your account.");
+    if (response.status === 400 && (await response.clone().text()).includes("invalid-listening-content"))
+      throw new Error("This saved listening exercise contains repeated filler. Generate a new exercise.");
     if (response.status === 400) throw new Error("Reveal the answer before exploring a character, then try again.");
     throw new Error("Learning help is unavailable right now. Please try again shortly.");
   }

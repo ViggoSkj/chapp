@@ -184,20 +184,22 @@ other browser regressions. No live synthesis is needed for these regressions.
 
 ## Live listening practice
 
-/listening uses the shared saved-practice workflow with independent sliders for
-length (3–5, 6–10, 11–20, 21–35, 36–60 Han characters) and character familiarity.
-The easiest setting uses reviewed Anki intervals of at least 21 days and excludes
-recent practice mistakes; higher settings widen to 14/7/3 days then all reviewed
-characters. This is an explained familiarity estimate, not measured mastery.
-No familiar characters produces an explicit error rather than easier-looking demo
-content or silent expansion. Settings apply to the next exercise; saved question
-reload restores its controls. The server validates actual length and membership.
+/listening shares the reading-practice character supply, AI generator, answer
+submission, evaluation and history. It selects easier settings and an audio-first
+formatter, hiding the sentence until answer reveal. Independent sliders control
+length (3–5, 6–10, 11–20, 21–35, 36–60 Han characters) and character preference.
+Easy favors familiar reviewed vocabulary; high uses normal mistake-focused
+practice weights. All reviewed eligibility and expression context stay available
+for natural sentences. The former hard listening interval filters are removed.
 
-Chinese/pinyin/meaning and chat transcript context stay hidden until a saved
-answer is revealed. Shared cached audio supports slow replay and revealed-character
-highlighting. Saved questions and failed Daily-practice retries retain audio-first
-mode. Listening is live; only Anki Reviews keeps its Demo badge.
+The AI must produce meaningful Mandarin and may decline impossible constraints.
+Structural checks reject chants/repeated padding, while normal reduplication is
+allowed. Old filler cannot be replayed or newly graded; history is preserved.
+Friendly errors never silently change settings or substitute sample content.
 
-tests/listening.browser.cjs verifies keyboard sliders, before/after reveal,
-companion context, replay highlighting, saved reload, unavailable familiarity,
-idempotent network retries and desktop/mobile layout without live provider calls.
+Chinese/pinyin/meaning and companion transcript context stay hidden until review.
+Shared cached audio supports slow replay and revealed-character highlighting.
+Reopening restores saved controls. Listening is live; only Anki Reviews is a demo.
+
+tests/listening.browser.cjs covers keyboard controls, hidden content/context,
+replay highlighting, saved reload, filler/refusal errors, retry and mobile layout.
