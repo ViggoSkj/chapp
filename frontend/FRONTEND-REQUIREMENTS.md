@@ -172,3 +172,8 @@ is required. Browsers unable to decode locally retain original playback.
 
 Owner requested progress toward goals. Overview and Progress now show explicit persisted weekly practice-day and submission targets, UTC Monday weeks and a same-weekdays comparison. No target is claimed until saved. These track consistency, not mastery. Goal data stays scoped to the active learner; viewing remains read-only.
 
+
+## Chapp Feedback implementation (2026-11-04)
+
+Owner feedback read from the Chapp Feedback conversation: enlarge desktop companion; rename Sentences to Mandarin → English translation; hide translation audio before answering; add English → Mandarin; replace Daily practice entry with duration-based Daily Q&A using an injectable planner; pre-generate the next exercise after answering and discard mismatched settings. Listening still requires audio before answering. Desktop companion is resizable and mobile remains constrained. Daily plan duration is an estimate, initially two minutes per exercise, not measured study time or AI adaptation. Background requests keep their idempotency key on uncertain failure and remain private until Next. Plans are current-session controls; issued questions and submissions remain saved on the server.
+

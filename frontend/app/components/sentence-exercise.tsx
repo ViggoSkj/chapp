@@ -10,11 +10,11 @@ import { useCachedAudio } from "./use-cached-audio";
 import { Icon } from "./icons";
 import styles from "./language-practice.module.css";
 
-type Question = { id: string; mandarin: string; difficulty: string; listening?: ListeningOptions | null };
+type Question = { id: string; mandarin: string; difficulty: string; answer_language?: string; listening?: ListeningOptions | null };
 type Answer = { id: string; exercise_id: string; text: string; submitted_at: string; dont_know?: boolean };
 type Grade = { correctness: number; feedback: string; suggested_translation: string };
 type Run = { id: string; state: string; result?: Grade; error_code?: string };
-type Review = { answer: Answer; question: { id: string; content: { mandarin: string; english: string; pinyin: string }; difficulty: string; listening?: ListeningOptions | null }; assessments: Run[] };
+type Review = { answer: Answer; question: { id: string; content: { mandarin: string; english: string; pinyin: string }; difficulty: string; answer_language?: string; listening?: ListeningOptions | null }; assessments: Run[] };
 type Difficulty = "beginner" | "intermediate" | "advanced";
 const cx = (names: string) => names.split(/\s+/).map(name => styles[name] ?? name).join(" ");
 class ApiError extends Error {
@@ -48,10 +48,15 @@ async function api<T>(path: string, body?: unknown, signal?: AbortSignal): Promi
 }
 
 export function SentenceExercise({ practiceQueue = false, listeningPractice = false }: { practiceQueue?: boolean; listeningPractice?: boolean }) {
-  const { state } = useAccount();
+  const { state, learner } = useAccount();
   const pagePath = listeningPractice ? "/listening" : practiceQueue ? "/practice" : "/sentences";
   const [lengthLevel, setLengthLevel] = useState(0);
   const [characterDifficulty, setCharacterDifficulty] = useState(0);
+  const [minutes, setMinutes] = useState(15);
+  const [plan, setPlan] = useState<string[]>([]);
+  const [planIndex, setPlanIndex] = useState(0);
+  const prefetched = useRef<{ key: string; id: string; promise: Promise<Question | null> } | null>(null);
+  const [reverse, setReverse] = useState(false);
   const [difficulty, setDifficulty] = useState<Difficulty>("beginner");
   const [question, setQuestion] = useState<Question | null>(null);
   const [answer, setAnswer] = useState("");
@@ -75,6 +80,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
   const retryId = useRef<string | null>(null);
   const generationId = useRef<string | null>(null);
   const audioFirst = listeningPractice || !!question?.listening;
+  const reverseQuestion = question?.answer_language === "zh-Hans" || question?.answer_language === "zh" || question?.answer_language === "zh-CN";
   const displayText = review?.question.content.mandarin ?? question?.mandarin ?? "";
   const completed = review?.assessments.find(run => run.state === "completed" && run.result);
 
@@ -112,7 +118,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
           const saved = await api<Review>("/attempts/" + encodeURIComponent(attemptId));
           if (!active) return;
           setReview(saved); setAnswer(saved.answer.text);
-          setQuestion({ id: saved.question.id, mandarin: saved.question.content.mandarin, difficulty: saved.question.difficulty, listening: saved.question.listening });
+          setQuestion({ id: saved.question.id, mandarin: saved.question.answer_language?.startsWith("zh") ? saved.question.content.english : saved.question.content.mandarin, answer_language: saved.question.answer_language, difficulty: saved.question.difficulty, listening: saved.question.listening });
           if (saved.question.listening) { setLengthLevel(saved.question.listening.length_level); setCharacterDifficulty(saved.question.listening.character_difficulty); }
         } else if (exerciseId) {
           const saved = await api<Question>("/exercises/" + encodeURIComponent(exerciseId));
@@ -128,6 +134,26 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
     return () => { active = false; queueRequest.current?.abort(); };
   }, [state, practiceQueue, loadFailedQuestions]);
 
+  const planKind = plan[planIndex];
+  const nextListening = listeningPractice || (practiceQueue && planKind === "listening");
+  const nextReverse = !nextListening && (practiceQueue && planKind ? planKind === "reverse" : reverse);
+  const settingsKey = JSON.stringify([state, learner?.chapp_user_id, difficulty, nextReverse, nextListening, lengthLevel, characterDifficulty, planIndex]);
+  const latestSettings = useRef(settingsKey);
+  latestSettings.current = settingsKey;
+  function generationBody(id: string) { return { request_id: id, difficulty, reverse: nextReverse, ...(nextListening ? { listening: { length_level: lengthLevel, character_difficulty: characterDifficulty } } : {}) }; }
+  function prepareNext() {
+    const key = settingsKey;
+    if (prefetched.current?.key === key) return;
+    const id = requestId();
+    prefetched.current = { key, id, promise: api<Question>("/exercises", generationBody(id)).then(next => latestSettings.current === key ? next : null).catch(() => null) };
+  }
+
+  useEffect(() => {
+    if (review && practiceQueue && plan.length && planIndex < plan.length) prepareNext();
+    // The plan and settings key completely identify the next background request.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [review?.answer.id, settingsKey]);
+
   function message(failure: unknown) { return failure instanceof Error ? failure.message : "The request failed. Please try again."; }
   function remember(kind: "exercise" | "attempt", id: string) {
     const url = new URL(window.location.href); url.search = ""; url.searchParams.set(kind, id);
@@ -135,7 +161,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
   }
   useLearningPage({ key: question?.id ?? pagePath, page: pagePath, mode: audioFirst ? "listening-practice" : practiceQueue ? "daily-practice" : "sentence-practice",
     revealed: !!review, exercise_id: question?.id, attempt_id: review?.answer.id,
-    content: question && (!audioFirst || review) ? [{ text: displayText, language: "zh-Hans" }] : [] });
+    content: question && (!audioFirst || review) ? [{ text: displayText, language: reverseQuestion && !review ? "en" : "zh-Hans" }] : [] });
   function record(kind: string) {
     action(kind);
     if (!question) return;
@@ -152,8 +178,10 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
     stop(); setBusy(listeningPractice ? "Preparing listening practice…" : "Generating sentence…"); setError("");
     generationId.current ??= requestId();
     try {
-      const next = await api<Question>("/exercises", { request_id: generationId.current, difficulty,
-        ...(listeningPractice ? { listening: { length_level: lengthLevel, character_difficulty: characterDifficulty } } : {}) });
+      if (prefetched.current?.key === settingsKey) generationId.current = prefetched.current.id;
+      const buffered = prefetched.current?.key === settingsKey ? await prefetched.current.promise : null;
+      prefetched.current = null;
+      const next = buffered ?? await api<Question>("/exercises", generationBody(generationId.current));
       action("Generated a new sentence"); setQuestion(next); setReview(null); setAnswer(""); submission.current = null; retryId.current = null;
       remember("exercise", next.id); generationId.current = null;
       void api(`/exercises/${next.id}/events`, { event_id: requestId(), kind: "question-displayed", client_time: new Date().toISOString() }).catch(() => {});
@@ -175,7 +203,8 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
       action(dontKnow ? "Chose “Don’t know” and revealed the review" : "Submitted an answer and revealed the review"); setReview(saved); remember("attempt", saved.answer.id);
       if (dontKnow) setAnswer("");
       setHistory(items => [saved.answer, ...items.filter(item => item.id !== saved.answer.id)].slice(0, 20));
-      if (practiceQueue) void loadFailedQuestions(0);
+      if (practiceQueue) { void loadFailedQuestions(0); setPlanIndex(index => plan.length ? index + 1 : index); }
+      if (!practiceQueue || !plan.length) prepareNext();
     } catch (failure) { setError(message(failure)); }
     finally { setBusy(""); }
   }
@@ -194,7 +223,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
     stop(); setBusy("Opening saved attempt…"); setError("");
     try {
       const saved = await api<Review>(`/attempts/${id}`); setReview(saved); setAnswer(saved.answer.text);
-      setQuestion({ id: saved.question.id, mandarin: saved.question.content.mandarin, difficulty: saved.question.difficulty, listening: saved.question.listening });
+      setQuestion({ id: saved.question.id, mandarin: saved.question.answer_language?.startsWith("zh") ? saved.question.content.english : saved.question.content.mandarin, answer_language: saved.question.answer_language, difficulty: saved.question.difficulty, listening: saved.question.listening });
           if (saved.question.listening) { setLengthLevel(saved.question.listening.length_level); setCharacterDifficulty(saved.question.listening.character_difficulty); }
       action("Opened a saved attempt"); remember("attempt", id); retryId.current = null;
     } catch (failure) { setError(message(failure)); }
@@ -215,11 +244,12 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
   const stage = review ? 2 : question ? 1 : 0;
 
   return <div className={cx("language-practice")}>
-    <div className={cx("page-heading")}><div><div className={cx("eyebrow")}>APPLY WHAT YOU KNOW</div><h1>{listeningPractice ? "A little closer. A little clearer." : practiceQueue ? "Your next step in Mandarin." : "One sentence at a time."}</h1><p>{listeningPractice ? "Listen to Mandarin built from your reviewed characters. Start small, write the meaning, then explore what you heard." : practiceQueue ? "Revisit a question that needs practice, or try a new sentence." : "Translate a Mandarin sentence into English. New sentences give extra emphasis to characters from recent mistakes, using only your reviewed Anki vocabulary."}</p></div><Link href={practiceQueue ? "/sentences" : "/practice"} className={cx("button secondary")}>{practiceQueue ? "Sentence practice" : "All practice"} <Icon name="arrow" size={16} /></Link></div>
+    <div className={cx("page-heading")}><div><div className={cx("eyebrow")}>APPLY WHAT YOU KNOW</div><h1>{listeningPractice ? "A little closer. A little clearer." : practiceQueue ? "Your daily Q&A." : "One sentence at a time."}</h1><p>{listeningPractice ? "Listen to Mandarin built from your reviewed characters. Start small, write the meaning, then explore what you heard." : practiceQueue ? "Revisit a question that needs practice, or try a new sentence." : "Translate a Mandarin sentence into English. New sentences give extra emphasis to characters from recent mistakes, using only your reviewed Anki vocabulary."}</p></div><Link href={practiceQueue ? "/sentences" : "/practice"} className={cx("button secondary")}>{practiceQueue ? "Sentence practice" : "All practice"} <Icon name="arrow" size={16} /></Link></div>
     <nav className={cx("practice-page-links")} aria-label="Practice modes"><Link href="/practice" aria-current={practiceQueue ? "page" : undefined}><Icon name="spark" size={17} />Daily practice</Link><Link href="/sentences" aria-current={!practiceQueue && !listeningPractice ? "page" : undefined}><Icon name="book" size={17} />Sentence practice</Link><Link href="/listening" aria-current={listeningPractice ? "page" : undefined}><Icon name="sound" size={17} />Listening practice</Link></nav>
     <ol className={cx("exercise-steps")} aria-label="Exercise progress">{["Prepare", "Try it", "Explore"].map((label, index) => <li key={label} data-state={index === stage ? "current" : index < stage ? "complete" : "upcoming"} aria-current={index === stage ? "step" : undefined}><span>{index < stage ? "✓" : `0${index + 1}`}</span><div><strong>{label}</strong><small>{index === 0 ? "Choose your challenge" : index === 1 ? "Find the meaning" : "Review and discover"}</small></div></li>)}</ol>
     {error && <p className={cx("speech-status")} role="alert">{error}</p>}
     {notice && <p className={cx("speech-status")} role="status">{notice}</p>}
+    {practiceQueue && <section className={cx("panel exercise-panel queue-panel")}><div className={cx("exercise-toolbar")}><div><h2>Daily Q&amp;A</h2><p>A mix of translation and listening. Duration is an estimate, not a timed deadline.</p></div></div><div className={cx("exercise-body")}><label>Practice duration: {minutes} minutes<input aria-label="Daily practice duration" type="range" min={5} max={60} step={5} value={minutes} onChange={event => setMinutes(Number(event.target.value))} /></label><button className={cx("button primary")} disabled={!!busy} onClick={async () => { setBusy("Planning your session…"); try { const items = await api<string[]>("/daily-plan?minutes=" + minutes); setPlan(items); setPlanIndex(0); prefetched.current = null; setNotice("Your plan is ready. Generate the first exercise to begin."); } catch (failure) { setError(message(failure)); } finally { setBusy(""); } }}>Create daily plan</button>{plan.length > 0 && <p role="status">{Math.min(planIndex, plan.length)} of {plan.length} exercises answered · {planIndex >= plan.length ? "Plan complete. You can stop here or create another plan." : "Next: " + (planKind === "reverse" ? "English → Mandarin" : planKind === "listening" ? "Listening" : "Mandarin → English")}</p>}</div></section>}
     {practiceQueue && <section className={cx("panel exercise-panel queue-panel")} aria-busy={queueLoading} aria-label="Your practice queue">
       <div className={cx("exercise-toolbar")}><div><h2>Your practice queue</h2><p>Revisit sentences where your last graded answer missed some meaning.</p></div><button className={cx("button secondary")} disabled={queueLoading} onClick={() => void loadFailedQuestions(queueOffset)}>Refresh queue</button></div>
       <div className={cx("exercise-body")}>
@@ -242,7 +272,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
       </div>
     </section>}
     <section className={cx("panel exercise-panel")} aria-busy={!!busy} aria-label="Current exercise">
-      <div className={cx("exercise-toolbar")}><div><h2>{listeningPractice ? "Your listening studio" : "Mandarin to English"}</h2><p>{listeningPractice ? "Two small adjustments. A listening challenge that fits you." : "Fresh sentences made from the characters you’ve reviewed."}</p></div>{!listeningPractice && <label className={cx("difficulty-select")}>Next sentence difficulty<select value={difficulty} disabled={!!busy} onChange={event => { setDifficulty(event.target.value as Difficulty); generationId.current = null; }}><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></label>}</div>
+      <div className={cx("exercise-toolbar")}><div><h2>{listeningPractice ? "Your listening studio" : reverse ? "English → Mandarin translation" : "Mandarin → English translation"}</h2><p>{listeningPractice ? "Two small adjustments. A listening challenge that fits you." : "Fresh sentences made from the characters you’ve reviewed."}</p></div>{!listeningPractice && <label className={cx("difficulty-select")}>Translation direction<select value={reverse ? "reverse" : "forward"} disabled={!!busy} onChange={event => { setReverse(event.target.value === "reverse"); generationId.current = null; }}><option value="forward">Mandarin → English</option><option value="reverse">English → Mandarin</option></select></label>}{!listeningPractice && <label className={cx("difficulty-select")}>Next sentence difficulty<select value={difficulty} disabled={!!busy} onChange={event => { setDifficulty(event.target.value as Difficulty); generationId.current = null; }}><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></label>}</div>
       {listeningPractice && <div className={cx("listening-settings")} aria-label="Next listening exercise settings">
         <label className={cx("listening-slider")} htmlFor="listening-length"><span>Sentence length<output htmlFor="listening-length">{listeningLengths[lengthLevel]}</output></span>
           <input id="listening-length" aria-label="Sentence length" type="range" min={0} max={4} step={1} value={lengthLevel} aria-valuetext={listeningLengths[lengthLevel]} disabled={!!busy} onChange={event => { setLengthLevel(Number(event.target.value)); generationId.current = null; }} />
@@ -260,13 +290,13 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
         {question ? <>
           <div className={cx("exercise-meta")}><span className={cx("eyebrow")}>{audioFirst ? "LISTEN. WHAT DOES IT MEAN?" : "WHAT DOES THIS SENTENCE MEAN?"}</span><span className={cx("exercise-level")}>{question.listening ? listeningLengths[question.listening.length_level] : question.difficulty}</span></div>
           {audioFirst && !review ? <div className={cx("listening-stage")}><span className={cx("listening-orb")} data-playing={sound.playing}><Icon name="sound" size={36} /></span><h3>{sound.playing ? "Listen closely…" : "Let your ears lead."}</h3><p>The Chinese, pinyin and meaning stay hidden until you answer.</p></div>
-            : <p className={cx("sentence-prompt")} lang="zh-CN"><ExploreText text={displayText} enabled={!!review} activeIndex={sound.spokenText === displayText ? sound.activeCharacterIndex : null} /></p>}
-          <div className={cx("listen-actions")}><button className={cx("button secondary")} disabled={sound.loading || !!busy} onClick={() => void listen()}><Icon name="sound" size={18} />{sound.loading ? "Loading audio…" : sound.playing ? "Replay" : "Listen"}</button>{sound.playing && <button className={cx("button secondary")} onClick={stop}>Stop</button>}</div>
-          <label className={cx("translation-draft")}>{audioFirst ? "What did you hear? Write the meaning in English" : "Your English translation"}<textarea value={answer} disabled={!!busy || !!review} onChange={event => setAnswer(event.target.value)} maxLength={8000} rows={4} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter" && !busy && !review && answer.trim()) { event.preventDefault(); void submit(); } }} placeholder="Write the meaning in your own words…" /><span className={cx("draft-hint")}>{review ? "Your saved response" : "Your own words are enough. Ctrl / ⌘ + Enter to submit."}</span></label>
+            : <p className={cx("sentence-prompt")} lang={reverseQuestion && !review ? "en" : "zh-CN"}><ExploreText text={displayText} enabled={!!review} activeIndex={sound.spokenText === displayText ? sound.activeCharacterIndex : null} /></p>}
+          {(audioFirst || review) && <div className={cx("listen-actions")}><button className={cx("button secondary")} disabled={sound.loading || !!busy} onClick={() => void listen()}><Icon name="sound" size={18} />{sound.loading ? "Loading audio…" : sound.playing ? "Replay" : "Listen"}</button>{sound.playing && <button className={cx("button secondary")} onClick={stop}>Stop</button>}</div>}
+          <label className={cx("translation-draft")}>{audioFirst ? "What did you hear? Write the meaning in English" : reverseQuestion ? "Your Mandarin translation" : "Your English translation"}<textarea value={answer} disabled={!!busy || !!review} onChange={event => setAnswer(event.target.value)} maxLength={8000} rows={4} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter" && !busy && !review && answer.trim()) { event.preventDefault(); void submit(); } }} placeholder="Write the meaning in your own words…" /><span className={cx("draft-hint")}>{review ? "Your saved response" : "Your own words are enough. Ctrl / ⌘ + Enter to submit."}</span></label>
           {!review && <div className={cx("listen-actions")}><button className={cx("button primary")} disabled={!!busy || !answer.trim()} onClick={() => void submit()}>Submit for grading</button><button className={cx("button secondary")} disabled={!!busy} onClick={() => void submit(true)}>Don’t know</button></div>}
           {review && <section className={cx("review-panel")} aria-label="Answer review">
             <div className={cx("review-heading")}><div><span className={cx("eyebrow")}>ANSWER REVIEW</span><h3>{completed?.result ? completed.result.correctness === 1 ? "You’ve got the meaning." : "A little more to discover." : "Your answer is saved."}</h3></div>{completed?.result && <span className={cx("score-badge")}>Correctness: {completed.result.correctness.toFixed(2)} / 1</span>}</div>
-            <div className={cx("review-grid")}><div><h4>Reference</h4><p>{review.question.content.english}</p><p className={cx("pinyin")} lang="zh-Latn-pinyin">{review.question.content.pinyin}</p></div><div><h4>{completed?.result ? "Your feedback" : "Assessment status"}</h4>{review.answer.dont_know && <p><strong>You chose “Don’t know”.</strong> This counts as 0 and the sentence stays in your practice queue.</p>}{completed?.result ? !review.answer.dont_know && <><p>{completed.result.feedback}</p><p><strong>Suggested translation:</strong> {completed.result.suggested_translation}</p></> : <><p>Assessment is {review.assessments[0]?.state ?? "pending"}. This has not been counted as an incorrect answer.</p><button className={cx("button secondary")} disabled={!!busy} onClick={() => void retry()}>Retry assessment</button></>}</div></div>
+            <div className={cx("review-grid")}><div><h4>Reference</h4><p>{reverseQuestion ? review.question.content.mandarin : review.question.content.english}</p><p className={cx("pinyin")} lang="zh-Latn-pinyin">{review.question.content.pinyin}</p></div><div><h4>{completed?.result ? "Your feedback" : "Assessment status"}</h4>{review.answer.dont_know && <p><strong>You chose “Don’t know”.</strong> This counts as 0 and the sentence stays in your practice queue.</p>}{completed?.result ? !review.answer.dont_know && <><p>{completed.result.feedback}</p><p><strong>Suggested translation:</strong> {completed.result.suggested_translation}</p></> : <><p>Assessment is {review.assessments[0]?.state ?? "pending"}. This has not been counted as an incorrect answer.</p><button className={cx("button secondary")} disabled={!!busy} onClick={() => void retry()}>Retry assessment</button></>}</div></div>
             <p className={cx("explore-hint")}><Icon name="spark" size={16} />Select any Chinese character above to explore its meaning and sound.</p>
           </section>}
         </> : <div className={cx("exercise-empty")}><span className={cx("empty-symbol")}><Icon name={listeningPractice ? "sound" : "book"} size={32} /></span><span className={cx("eyebrow")}>A LITTLE PRACTICE, EVERY DAY</span><h3>{listeningPractice ? "Make room for listening." : practiceQueue ? "Build on what you know." : "Let’s find the meaning."}</h3><p>{practiceQueue ? "Choose a saved question above, or generate a new sentence. Every new answer is saved as a separate attempt." : listeningPractice ? "Start with a short phrase and familiar characters. Generate your first listening exercise when you’re ready." : "Generate a sentence when you’re ready. Your answer and feedback will be saved to your Chapp account."}</p><div className={cx("empty-guide")}><span>01 · {listeningPractice ? "Listen at your pace" : "Read a new sentence"}</span><span>02 · Try the meaning</span><span>03 · Explore the answer</span></div></div>}

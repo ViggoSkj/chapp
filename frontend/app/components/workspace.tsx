@@ -8,8 +8,8 @@ import { sections } from "../lib/demo";
 
 const navigationGroups = [
   { label: "Practice", items: [
-    { id: "practice", title: "Daily practice", icon: "spark" },
-    { id: "sentences", title: "Sentences", icon: "book" },
+    { id: "practice", title: "Daily Q&A", icon: "spark" },
+    { id: "sentences", title: "Mandarin → English translation", icon: "book" },
     { id: "listening", title: "Listening", icon: "sound" },
   ] },
   { label: "Explore", items: [

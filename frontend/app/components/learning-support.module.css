@@ -226,3 +226,5 @@
 
 /* Shared playback emphasis preserves the reveal-state interaction rules. */
 .speaking, .character.speaking { background: var(--yellow); color: var(--background); border-radius: 3px; box-shadow: 0 0 0 2px var(--yellow); }
+
+@media(min-width:801px){.chatPanel{width:min(640px,calc(100vw - 64px));height:min(780px,calc(100dvh - 140px));max-height:calc(100dvh - 140px);resize:both;min-width:420px;min-height:420px}.messages{flex:1;max-height:none;min-height:160px}.chatPanel textarea{min-height:100px;font-size:15px}}
