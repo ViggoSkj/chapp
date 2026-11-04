@@ -145,7 +145,7 @@ function reviewFor(question, body, completed) {
     assert.equal(await page.getByLabel('Your English translation').inputValue(), '', 'The discarded draft must not look like the saved answer.');
     assert.equal(await page.getByText('Suggested translation:', { exact: false }).count(), 0);
     assert.ok(failed.some(item => item.id === sourceQuestions[0].id), '"Don\'t know" keeps the question in the practice queue.');
-    await page.getByRole('button', { name: /^Don’t know · / }).waitFor();
+    await page.getByRole('button', { name: /^Don’t know/ }).waitFor();
     await page.screenshot({ path: out + '/practice-dont-know-mobile.png', fullPage: true });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
 

@@ -160,3 +160,10 @@ character is highlighted. Apply to sentence/listening/Daily practice and charact
 audio, at every speed and replay. Navigation/stop cancels pending decoding too.
 Stored audio/timings remain original, so no cache deletion or paid regeneration
 is required. Browsers unable to decode locally retain original playback.
+
+## Exercise studio refinement (2026-11-04)
+
+- Reading, listening and Daily practice share Prepare / Try it / Explore stages and mode navigation.
+- Revealed answers separate reference, pinyin and assessment feedback, while keeping character exploration available.
+- Saved attempts support local search of the most recent loaded submissions. Ctrl/Cmd+Enter submits a written answer.
+- Shared surfaces, typography, touch targets and mobile layouts use the same visual system. Existing live/demo classifications and hidden-answer requirements remain in force.

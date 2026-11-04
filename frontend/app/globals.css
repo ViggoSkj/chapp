@@ -1981,4 +1981,71 @@ td.hanzi {
   .nav-group-label {
     display: none;
   }
+}/* Shared learning studio: quiet surfaces, readable controls, clear hierarchy. */
+:root {
+  --background:#15171c;
+  --foreground:#f3eee5;
+  --muted:#b0b1bb;
+  --border:#34373f;
+  --surface:#1d2027;
+  --surface-raised:#282c35;
+  --sidebar:#191c22;
+  --yellow:#ead3a3;
+  --cerise:#a93f64;
+  --cerise-bright:#f6a5b6;
+  --sage:#343629;
+  --peach:#382931;
+  --lavender:#2d2a3a;
+  --butter:#373125;
+}
+body { font-family:var(--font-geist-sans),Arial,Helvetica,sans-serif; }
+main { padding-bottom:48px; }
+.sidebar { padding-top:28px; }
+.brand-mark { border-radius:12px; }
+.nav-link { min-height:44px; border-radius:10px; font-size:13px; }
+.nav-link.active { background:var(--surface-raised); color:var(--yellow); box-shadow:inset 3px 0 var(--yellow); }
+.nav-group-label { font-size:10px; padding-top:22px; }
+.workspace-label { opacity:.7; }
+.topbar { border-bottom:1px solid var(--border); }
+.page-heading h1 { font-size:clamp(28px,3vw,40px); line-height:1.2; letter-spacing:-1.4px; margin:12px 0; }
+.page-heading p { font-size:14px; max-width:68ch; line-height:1.8; }
+.eyebrow { font-size:10px; letter-spacing:1.8px; }
+.button { min-height:44px; border-radius:10px; font-size:13px; font-weight:600; padding:12px 18px; }
+.button.primary { background:var(--yellow); color:#24231f; border:1px solid var(--yellow); box-shadow:0 3px 12px #0002; }
+.button.primary:hover:not(:disabled) { background:#f5e2ba; border-color:#f5e2ba; transform:translateY(-1px); }
+.button.secondary { background:var(--surface); border:1px solid var(--border); color:var(--foreground); }
+.button.secondary:hover:not(:disabled) { background:var(--surface-raised); border-color:#737580; }
+button:disabled { opacity:.5; cursor:not-allowed; }
+.panel { border-radius:16px; }
+.stat-card { border-radius:14px; padding:22px; }
+.stat-top { font-size:12px; }
+.stat-note { font-size:11px; line-height:1.6; }
+.stat-value { font-size:36px; letter-spacing:-1.2px; }
+.panel-heading h2 { font-size:18px; }
+.panel-heading p { font-size:12px; }
+.detail-panel { padding:30px; }
+.tool-card { border-radius:14px; }
+.tool-card h3 { font-size:16px; }
+.tool-card p { font-size:13px; }
+.tool-action { font-size:12px; }
+.practice-shortcuts strong { font-size:16px; }
+.practice-shortcuts p { font-size:13px; }
+.profile { padding-bottom:20px; }
+footer { padding-bottom:90px; }
+@media(max-width:960px) { .page-heading h1 { font-size:30px; } }
+@media(max-width:640px) {
+  .sidebar { padding:18px 16px 0; }
+  .sidebar nav { padding-bottom:12px; }
+  .nav-link { font-size:12px; padding:0 12px; min-height:44px; }
+  .topbar { padding:0 18px; }
+  main { padding:28px 16px 40px; }
+  .page-heading h1 { font-size:30px; }
+  .page-heading p { font-size:13px; }
+  .page-heading>.button { font-size:12px; }
+  .stat-card { padding:16px; }
+  .stat-top { font-size:11px; }
+  .stat-note { font-size:11px; }
+  .detail-panel { padding:22px; }
+  .tool-card p { font-size:12px; }
+  .tool-action { font-size:11px; }
 }
