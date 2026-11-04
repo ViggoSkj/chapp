@@ -1948,3 +1948,37 @@ td.hanzi {
 .page-demo-banner {display:flex;align-items:center;gap:14px;margin-bottom:24px;padding:14px 18px;border:1px solid #756529;border-radius:12px;background:var(--sage);color:var(--foreground);font-size:12px;line-height:1.5}
 .demo-sticker {display:inline-flex;flex-shrink:0;align-items:center;justify-content:center;padding:5px 10px;border:2px solid var(--background);border-radius:6px;background:var(--yellow);color:var(--background);font-size:11px;font-weight:800;letter-spacing:1.5px;transform:rotate(-4deg)}
 @media(max-width:640px) {.page-demo-banner {align-items:flex-start;gap:10px;padding:12px;margin-bottom:20px;font-size:11px}.demo-sticker {font-size:10px}}
+
+/* Keep navigation groups visible on desktop and one scrollable row on mobile. */
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-group-label {
+  padding: 18px 15px 5px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.nav-demo {
+  margin-left: auto;
+  padding: 2px 5px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-size: 9px;
+}
+
+@media (max-width: 640px) {
+  .nav-group {
+    display: contents;
+  }
+
+  .nav-group-label {
+    display: none;
+  }
+}

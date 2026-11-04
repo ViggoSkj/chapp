@@ -86,7 +86,7 @@ export function ProgressDashboard({ overview = false }: { overview?: boolean }) 
   return <>
     <div className="page-heading"><div><div className="eyebrow">YOUR MANDARIN JOURNEY</div>
       <h1>{overview ? "A little better, every day." : "Your progress."}</h1>
-      <p>Your saved sentence practice, one step at a time.</p></div>
+      <p>{overview ? "Choose a practice session or check your recent activity." : "Your saved practice and activity."}</p></div>
       <Link href="/practice" className="button primary"><Icon name="spark" size={17} />Let’s practice<Icon name="arrow" size={17} /></Link>
     </div>
     {loading ? <section className="panel detail-panel" role="status">Loading your progress…</section>
@@ -103,13 +103,10 @@ export function ProgressDashboard({ overview = false }: { overview?: boolean }) 
           <div className="eyebrow">YOUR NEXT SMALL STEP</div><h2>{progress.questions_needing_practice > 0 ? "Give it another try." : "Keep your practice growing."}</h2>
           <p>{progress.questions_needing_practice > 0 ? `${progress.questions_needing_practice} ${progress.questions_needing_practice === 1 ? "question is" : "questions are"} ready to revisit. A fully correct answer clears a question from your queue.` : "Try a new sentence using characters from your Anki vocabulary."}</p>
           <Link className="button primary" href={progress.questions_needing_practice > 0 ? "/practice" : "/sentences"}>{progress.questions_needing_practice > 0 ? "Revisit questions" : "Practice a new sentence"}<Icon name="arrow" size={16} /></Link>
-          <p className={styles.explanation}>Each submitted answer counts once. Assessment retries update its grade. Scores average the latest valid grade for each answer.</p>
+
         </section></div>
-        <p className={styles.explanation}>Activity and streaks use UTC calendar days. A streak continues through yesterday if you have not practiced today. Grades are grouped by the original submission day. These figures cover saved practice in your current learner account.</p>
+        <details className={styles.details}><summary>How progress is calculated</summary><p className={styles.explanation}>Each submitted answer counts once. Assessment retries update its grade. Scores average the latest valid grade for each answer. Activity and streaks use UTC calendar days. A streak continues through yesterday if you have not practiced today. Grades are grouped by the original submission day. These figures cover saved practice in your current learner account.</p></details>
         <p className={styles.updated}>Updated {new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(progress.as_of))} UTC</p>
       </> : null}
-    {overview && <section className={`panel detail-panel ${styles.toolkit}`}><h2>Your learning toolkit</h2><div>
-      <Link className="button secondary" href="/sentences">Sentence practice</Link><Link className="button secondary" href="/practice">Daily practice</Link><Link className="button secondary" href="/progress">Your progress</Link><Link className="button secondary" href="/vocabulary">Your vocabulary</Link><Link className="button secondary" href="/connections">Connections</Link>
-    </div><p>Train your ear with <Link href="/listening">Listening practice</Link>, or explore <Link href="/reviews">Anki reviews</Link> · Anki reviews currently show demo content.</p></section>}
   </>;
 }

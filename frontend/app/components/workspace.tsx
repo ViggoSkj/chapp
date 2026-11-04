@@ -6,15 +6,53 @@ import { AccountMenu } from "./account";
 import { Icon } from "./icons";
 import { sections } from "../lib/demo";
 
+const navigationGroups = [
+  { label: "Practice", items: [
+    { id: "practice", title: "Daily practice", icon: "spark" },
+    { id: "sentences", title: "Sentences", icon: "book" },
+    { id: "listening", title: "Listening", icon: "sound" },
+  ] },
+  { label: "Explore", items: [
+    { id: "vocabulary", title: "Vocabulary", icon: "book" },
+    { id: "progress", title: "Progress", icon: "chart" },
+  ] },
+  { label: "Manage", items: [
+    { id: "connections", title: "Connections", icon: "plug" },
+    { id: "reviews", title: "Anki reviews", icon: "cards", demo: true },
+  ] },
+];
+
+const overviewLink = { id: "", title: "Overview", icon: "grid" };
+const navigation = [overviewLink, ...navigationGroups.flatMap(group => group.items)];
+
+function NavigationLink({ item, pathname }: {
+  item: { id: string; title: string; icon: string; demo?: boolean };
+  pathname: string;
+}) {
+  const href = `/${item.id}`;
+  const active = pathname === href;
+
+  return <Link href={href} className={`nav-link ${active ? "active" : ""}`} aria-current={active ? "page" : undefined}>
+    <Icon name={item.icon} />
+    <span>{item.title}</span>
+    {item.demo && <small className="nav-demo">Demo</small>}
+  </Link>;
+}
+
 export function Workspace({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isDemoPage = ["/reviews"].includes(pathname);
-  const navigation = [{ id: "", title: "Overview", icon: "grid" }, ...sections, { id: "connections", title: "Connections", icon: "plug" }];
   return <div className="workspace">
     <aside className="sidebar">
       <Link href="/" className="brand" aria-label="Mando home"><span className="brand-mark" lang="zh">文</span><span>mando<span className="brand-dot">.</span><small>A LITTLE EVERY DAY</small></span></Link>
       <div className="workspace-label">MY LEARNING SPACE</div>
-      <nav aria-label="Main navigation">{navigation.map(item => <Link key={item.id} href={`/${item.id}`} className={`nav-link ${pathname === `/${item.id}` ? "active" : ""}`} aria-current={pathname === `/${item.id}` ? "page" : undefined}><Icon name={item.icon} /><span>{item.title}</span></Link>)}</nav>
+      <nav aria-label="Main navigation">
+        <NavigationLink item={overviewLink} pathname={pathname} />
+        {navigationGroups.map(group => <div className="nav-group" role="group" aria-label={group.label} key={group.label}>
+          <div className="nav-group-label" aria-hidden="true">{group.label}</div>
+          {group.items.map(item => <NavigationLink key={item.id} item={item} pathname={pathname} />)}
+        </div>)}
+      </nav>
       <div className="sidebar-bottom"><div className="small-note"><Icon name="leaf" size={21} /><strong>Small steps. Real progress.</strong><p>Every word brings you a little closer.</p><span lang="zh">慢慢来，比较快。</span></div><div className="profile"><span className="avatar">V</span><div><strong>My Mandarin journey</strong><small>Personal workspace</small></div><span className="profile-dot" /></div></div>
     </aside>
     <div className="main-wrap"><header className="topbar"><div className="breadcrumb">My workspace <span>/</span> <strong>{navigation.find(n => `/${n.id}` === pathname)?.title ?? (pathname === "/login" ? "Sign in" : "Overview")}</strong></div><div className="topbar-right"><AccountMenu /><span className="header-divider" /><span className="language-label">简体中文 <Icon name="book" size={15} /></span></div></header><main id="main-content">{isDemoPage && <div className="page-demo-banner" role="note"><span className="demo-sticker">DEMO</span><span>Sample content and practice · not your live study data.</span></div>}{children}</main><footer><span>Made for your Mandarin journey.</span><span>一点一滴 · One step at a time</span></footer></div>
