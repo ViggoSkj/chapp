@@ -91,7 +91,7 @@ const uuid = () => '00000000-0000-4000-8000-' + String(++id).padStart(12, '0');
     await page.getByRole('textbox', { name: /What did you hear/ }).press('Control+Enter');
     await page.getByText('wǒ hěn hǎo', { exact: true }).waitFor();
     await page.getByRole('button', { name: 'Explore 我', exact: true }).waitFor();
-    assert.equal(await page.locator('li[aria-current="step"]').innerText().then(text => text.includes('Explore')), true);
+    assert.equal(await page.getByRole('list', { name: 'Exercise progress' }).count(), 0);
     const savedAttempts = page.getByRole('region', { name: 'Saved attempts', exact: true });
     await savedAttempts.getByRole('searchbox').fill('no matching answer');
     await savedAttempts.getByText('No saved answers match your search.').waitFor();

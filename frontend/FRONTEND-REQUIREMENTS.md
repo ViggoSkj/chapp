@@ -182,3 +182,8 @@ Owner feedback read from the Chapp Feedback conversation: enlarge desktop compan
 
 Replay audio remains a stable control after the first successful playback, including after completion, stopping and answer reveal. Only a new question resets it to Listen. Listening audio remains available before answering; translation audio remains after-answer only.
 
+
+## Remove exercise stage cards (2026-11-04)
+
+Owner called out Prepare / Try it / Explore as unwanted remaining UI while asking for all feedback to be read. Removed the stage strip across reading, listening and Daily Q&A; this supersedes the earlier exercise-studio stage-card implementation note. Keep answer reveal states and character exploration functional without presenting them as three extra cards. The app tool exposes five Chapp Feedback entries and one desktop-chat screenshot, with no older-page cursor; Prepare/Try it/Explore was supplied in this conversation. Do not claim the tool exposed additional feedback it did not return.
+

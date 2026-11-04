@@ -249,14 +249,6 @@
 .language-practice :global(.page-heading p) { max-width:65ch; line-height:1.8; font-size:14px; }
 .practice-page-links { display:flex; width:fit-content; flex-wrap:wrap; margin-bottom:28px; background:var(--sidebar); }
 .practice-page-links a { min-height:44px; font-size:13px; }
-.exercise-steps { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); list-style:none; padding:0; margin:0 0 28px; gap:16px; }
-.exercise-steps li { display:flex; align-items:center; gap:12px; padding:16px 18px; border:1px solid var(--border); border-radius:12px; color:var(--muted); }
-.exercise-steps li>span { font-size:13px; font-variant-numeric:tabular-nums; border:1px solid var(--border); width:32px; height:32px; border-radius:50%; display:grid; place-items:center; flex-shrink:0; }
-.exercise-steps strong { font-size:13px; font-weight:600; }
-.exercise-steps small { display:block; font-size:11px; margin-top:5px; }
-.exercise-steps li[data-state="current"] { background:var(--surface); border-color:#8c8067; color:var(--foreground); }
-.exercise-steps li[data-state="current"]>span { background:var(--yellow); color:var(--background); border-color:var(--yellow); }
-.exercise-steps li[data-state="complete"]>span { color:var(--yellow); }
 .exercise-panel { box-shadow:0 12px 36px #0002; border-radius:18px; }
 .exercise-toolbar { padding:24px 30px; background:var(--sidebar); }
 .exercise-toolbar h2 { font-size:18px; }
@@ -323,10 +315,6 @@
   .practice-page-links { width:100%; gap:2px; padding:4px; }
   .practice-page-links a { font-size:11px; padding:10px 7px; gap:5px; }
   .practice-page-links a svg { display:none; }
-  .exercise-steps { gap:7px; margin-bottom:20px; }
-  .exercise-steps li { flex-direction:column; gap:8px; padding:12px 5px; text-align:center; }
-  .exercise-steps strong { font-size:12px; }
-  .exercise-steps small { display:none; }
   .exercise-toolbar { padding:20px; }
   .exercise-body { padding:22px 18px; }
   .sentence-prompt { padding:24px 14px; letter-spacing:2px; }

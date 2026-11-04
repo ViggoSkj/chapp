@@ -25,7 +25,8 @@ const assert = require('node:assert/strict');
     await route.fulfill({contentType:'application/json',body:JSON.stringify(value)});
   });
   try{
-    await page.goto('http://localhost:3010/sentences');
+    await page.goto((process.env.LEARNING_TEST_ORIGIN || 'http://localhost:3010') + '/sentences');
+    assert.equal(await page.getByRole('list', { name: 'Exercise progress' }).count(), 0);
     await page.getByRole('button',{name:'Generate sentence',exact:true}).click();
     assert.equal(await page.getByRole('button',{name:'Listen',exact:true}).count(),0);
     await page.getByRole('textbox',{name:/Your English translation/}).fill('I am well.');
@@ -46,7 +47,7 @@ const assert = require('node:assert/strict');
     await page.getByRole('button',{name:'Ask about your practice',exact:true}).click();
     const box=await page.locator('[aria-label="Learning companion"]').boundingBox().catch(()=>null);
     if(box)assert.ok(box.width>=600);
-    await page.goto('http://localhost:3010/practice');
+    await page.goto((process.env.LEARNING_TEST_ORIGIN || 'http://localhost:3010') + '/practice');
     await page.getByRole('button',{name:'Create daily plan',exact:true}).click();
     await page.getByText(/0 of 3 exercises answered/).waitFor();
     await page.setViewportSize({width:390,height:844});
