@@ -167,3 +167,8 @@ is required. Browsers unable to decode locally retain original playback.
 - Revealed answers separate reference, pinyin and assessment feedback, while keeping character exploration available.
 - Saved attempts support local search of the most recent loaded submissions. Ctrl/Cmd+Enter submits a written answer.
 - Shared surfaces, typography, touch targets and mobile layouts use the same visual system. Existing live/demo classifications and hidden-answer requirements remain in force.
+
+## Weekly goals (2026-11-04)
+
+Owner requested progress toward goals. Overview and Progress now show explicit persisted weekly practice-day and submission targets, UTC Monday weeks and a same-weekdays comparison. No target is claimed until saved. These track consistency, not mastery. Goal data stays scoped to the active learner; viewing remains read-only.
+

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { StudyGoals } from "./study-goals";
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../lib/api";
 import type { PracticeProgress } from "../lib/progress";
@@ -97,6 +98,7 @@ export function ProgressDashboard({ overview = false }: { overview?: boolean }) 
       : progress ? <>
         <div className={styles.toolbar}><span>Saved practice · all-time totals</span><button className="button secondary" onClick={() => setRevision(value => value + 1)}>Refresh progress</button></div>
         <Summary progress={progress} />
+        <StudyGoals key={owner} progress={progress} />
         {progress.total_attempts === 0 && <section className={`panel detail-panel ${styles.notice}`}><h2>Your first small step.</h2><p>No saved attempts yet. Submit a sentence answer to start building your practice history.</p><Link className="button primary" href="/sentences">Start sentence practice</Link></section>}
         {progress.ungraded_attempts > 0 && <p className={styles.notice} role="note">{progress.ungraded_attempts} {progress.ungraded_attempts === 1 ? "attempt has" : "attempts have"} no completed grade. Pending or failed grading does not lower your average score.</p>}
         <div className={styles.insights}><Activity progress={progress} /><section className={`panel ${styles.next}`}>

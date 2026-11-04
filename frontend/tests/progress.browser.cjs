@@ -33,6 +33,7 @@ const errors = [];
     if (endpoint === '/me') {
       status = accountStatus;
       body = { chapp_user_id: 'progress-owner' };
+    } else if (endpoint === '/goals') { body = null;
     } else if (endpoint === '/progress') {
       progressReads++;
       if (hold) await hold;
@@ -115,7 +116,7 @@ const errors = [];
     await page.getByRole('button', { name: 'Refresh progress' }).waitFor();
     assert.match(await stat('Average score').innerText(), /75%/);
     assert.equal(errors.length, 0, errors.join('\n'));
-    assert.ok(calls.every(call => call.method === 'GET' && ['/me', '/progress'].includes(call.endpoint)), 'Viewing progress must never perform provider work or Anki refresh');
+    assert.ok(calls.every(call => call.method === 'GET' && ['/me', '/progress', '/goals'].includes(call.endpoint)), 'Viewing progress must never perform provider work or Anki refresh');
     console.log('Progress browser checks passed: live totals, loading, paging chart, refresh/recovery, empty state, auth, desktop/mobile, and read-only requests.');
   } finally {
     await browser.close();
