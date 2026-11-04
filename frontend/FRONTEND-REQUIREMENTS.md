@@ -177,3 +177,8 @@ Owner requested progress toward goals. Overview and Progress now show explicit p
 
 Owner feedback read from the Chapp Feedback conversation: enlarge desktop companion; rename Sentences to Mandarin → English translation; hide translation audio before answering; add English → Mandarin; replace Daily practice entry with duration-based Daily Q&A using an injectable planner; pre-generate the next exercise after answering and discard mismatched settings. Listening still requires audio before answering. Desktop companion is resizable and mobile remains constrained. Daily plan duration is an estimate, initially two minutes per exercise, not measured study time or AI adaptation. Background requests keep their idempotency key on uncertain failure and remain private until Next. Plans are current-session controls; issued questions and submissions remain saved on the server.
 
+
+## Listening replay clarification (2026-11-04)
+
+Replay audio remains a stable control after the first successful playback, including after completion, stopping and answer reveal. Only a new question resets it to Listen. Listening audio remains available before answering; translation audio remains after-answer only.
+

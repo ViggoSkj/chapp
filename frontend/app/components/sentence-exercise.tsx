@@ -73,6 +73,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
   const [notice, setNotice] = useState("");
   const [ready, setReady] = useState(false);
   const [rate, setRate] = useState(0.8);
+  const [playedQuestionId, setPlayedQuestionId] = useState<string | null>(null);
   const [historySearch, setHistorySearch] = useState("");
   const sound = useCachedAudio(state + ":" + (question?.id ?? "sentence"));
   const { action } = useLearningSupport();
@@ -172,7 +173,10 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
   async function listen() {
     if (!question) return;
     record("audio-requested");
-    if (await sound.play("/exercises/" + question.id + "/sound", {}, rate, () => record("audio-ended"))) record("audio-started");
+    if (await sound.play("/exercises/" + question.id + "/sound", {}, rate, () => record("audio-ended"))) {
+      setPlayedQuestionId(question.id);
+      record("audio-started");
+    }
   }
   async function generate() {
     stop(); setBusy(listeningPractice ? "Preparing listening practice…" : "Generating sentence…"); setError("");
@@ -291,7 +295,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
           <div className={cx("exercise-meta")}><span className={cx("eyebrow")}>{audioFirst ? "LISTEN. WHAT DOES IT MEAN?" : "WHAT DOES THIS SENTENCE MEAN?"}</span><span className={cx("exercise-level")}>{question.listening ? listeningLengths[question.listening.length_level] : question.difficulty}</span></div>
           {audioFirst && !review ? <div className={cx("listening-stage")}><span className={cx("listening-orb")} data-playing={sound.playing}><Icon name="sound" size={36} /></span><h3>{sound.playing ? "Listen closely…" : "Let your ears lead."}</h3><p>The Chinese, pinyin and meaning stay hidden until you answer.</p></div>
             : <p className={cx("sentence-prompt")} lang={reverseQuestion && !review ? "en" : "zh-CN"}><ExploreText text={displayText} enabled={!!review} activeIndex={sound.spokenText === displayText ? sound.activeCharacterIndex : null} /></p>}
-          {(audioFirst || review) && <div className={cx("listen-actions")}><button className={cx("button secondary")} disabled={sound.loading || !!busy} onClick={() => void listen()}><Icon name="sound" size={18} />{sound.loading ? "Loading audio…" : sound.playing ? "Replay" : "Listen"}</button>{sound.playing && <button className={cx("button secondary")} onClick={stop}>Stop</button>}</div>}
+          {(audioFirst || review) && <div className={cx("listen-actions")}><button className={cx("button secondary")} disabled={sound.loading || !!busy} onClick={() => void listen()}><Icon name="sound" size={18} />{sound.loading ? "Loading audio…" : playedQuestionId === question.id ? "Replay audio" : "Listen"}</button>{sound.playing && <button className={cx("button secondary")} onClick={stop}>Stop</button>}</div>}
           <label className={cx("translation-draft")}>{audioFirst ? "What did you hear? Write the meaning in English" : reverseQuestion ? "Your Mandarin translation" : "Your English translation"}<textarea value={answer} disabled={!!busy || !!review} onChange={event => setAnswer(event.target.value)} maxLength={8000} rows={4} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter" && !busy && !review && answer.trim()) { event.preventDefault(); void submit(); } }} placeholder="Write the meaning in your own words…" /><span className={cx("draft-hint")}>{review ? "Your saved response" : "Your own words are enough. Ctrl / ⌘ + Enter to submit."}</span></label>
           {!review && <div className={cx("listen-actions")}><button className={cx("button primary")} disabled={!!busy || !answer.trim()} onClick={() => void submit()}>Submit for grading</button><button className={cx("button secondary")} disabled={!!busy} onClick={() => void submit(true)}>Don’t know</button></div>}
           {review && <section className={cx("review-panel")} aria-label="Answer review">
