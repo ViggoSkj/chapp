@@ -18,7 +18,7 @@ const origin = process.env.LEARNING_TEST_ORIGIN || 'http://localhost:3010';
         goals = { ...route.request().postDataJSON(), updated_at: '2026-11-04T12:00:00Z' };
         writes++;
       }
-      result = goals;
+      result = route.request().method() === 'GET' ? { goals } : goals;
     } else if (endpoint.endsWith('/progress')) result = {
       as_of: '2026-11-04T12:00:00Z', total_attempts: 14, graded_attempts: 10,
       fully_correct_attempts: 8, ungraded_attempts: 4, average_correctness: .8,

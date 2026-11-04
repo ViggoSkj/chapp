@@ -17,7 +17,8 @@ export function StudyGoals({ progress }: { progress: PracticeProgress }) {
   useEffect(() => {
     let active = true;
 
-    api<Goals | null>("/goals").then(value => {
+    api<{ goals: Goals | null }>("/goals").then(response => {
+      const value = response.goals;
       if (!active) return;
       setGoals(value);
       if (value) { setDays(String(value.weekly_days)); setAttempts(String(value.weekly_attempts)); }

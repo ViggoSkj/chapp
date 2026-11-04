@@ -33,7 +33,7 @@ const errors = [];
     if (endpoint === '/me') {
       status = accountStatus;
       body = { chapp_user_id: 'progress-owner' };
-    } else if (endpoint === '/goals') { body = null;
+    } else if (endpoint === '/goals') { body = { goals: null };
     } else if (endpoint === '/progress') {
       progressReads++;
       if (hold) await hold;
