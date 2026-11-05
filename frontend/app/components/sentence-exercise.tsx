@@ -7,6 +7,7 @@ import { listeningLengths, listeningFamiliarity, listeningHints, type ListeningO
 import { requestId } from "../lib/api";
 import { ExploreText, useLearningPage, useLearningSupport } from "./learning-support";
 import { useCachedAudio } from "./use-cached-audio";
+import { useExerciseTimer } from "./use-exercise-timer";
 import { Icon } from "./icons";
 import styles from "./language-practice.module.css";
 
@@ -77,12 +78,13 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
   const [historySearch, setHistorySearch] = useState("");
   const sound = useCachedAudio(state + ":" + (question?.id ?? "sentence"));
   const { action } = useLearningSupport();
-  const submission = useRef<{ submission_id: string; text: string; dont_know?: boolean } | null>(null);
+  const submission = useRef<{ submission_id: string; text: string; dont_know?: boolean; active_milliseconds?: number } | null>(null);
   const retryId = useRef<string | null>(null);
   const generationId = useRef<string | null>(null);
   const audioFirst = listeningPractice || !!question?.listening;
   const reverseQuestion = question?.answer_language === "zh-Hans" || question?.answer_language === "zh" || question?.answer_language === "zh-CN";
   const displayText = review?.question.content.mandarin ?? question?.mandarin ?? "";
+  const elapsedMilliseconds = useExerciseTimer(state === "signed-in" ? question : null, ready && !review && !busy);
   const completed = review?.assessments.find(run => run.state === "completed" && run.result);
 
   const loadFailedQuestions = useCallback(async (offset: number) => {
@@ -200,10 +202,18 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
     if (!question || (!dontKnow && !answer.trim())) return;
     setBusy(dontKnow ? "Saving “Don’t know”…" : "Saving answer and assessing…"); setError("");
     // Keep the same key while retrying the same choice, so a network retry cannot save a duplicate attempt.
-    if (dontKnow ? !submission.current?.dont_know : !submission.current || submission.current.dont_know || submission.current.text !== answer)
-      submission.current = dontKnow ? { submission_id: requestId(), text: "", dont_know: true } : { submission_id: requestId(), text: answer };
+    if (dontKnow ? !submission.current?.dont_know : !submission.current || submission.current.dont_know || submission.current.text !== answer) {
+      submission.current = {
+        submission_id: requestId(),
+        text: dontKnow ? "" : answer,
+        dont_know: dontKnow || undefined,
+        active_milliseconds: elapsedMilliseconds(),
+      };
+    }
     try {
       const saved = await api<Review>(`/exercises/${question.id}/attempts`, submission.current);
+      // Discard a preview from an earlier answer, even when its settings still match.
+      prefetched.current = null;
       action(dontKnow ? "Chose “Don’t know” and revealed the review" : "Submitted an answer and revealed the review"); setReview(saved); remember("attempt", saved.answer.id);
       if (dontKnow) setAnswer("");
       setHistory(items => [saved.answer, ...items.filter(item => item.id !== saved.answer.id)].slice(0, 20));
@@ -218,6 +228,8 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
     try {
       const saved = await api<Review>("/attempts/" + review.answer.id + "/assessment-retries", { request_id: retryId.current });
       setReview(saved); retryId.current = null;
+      // A next question generated before a successful grading retry used older evidence.
+      if (saved.assessments.some(run => run.state === "completed" && run.result)) prefetched.current = null;
       if (practiceQueue) void loadFailedQuestions(0);
     }
     catch (failure) { setError(message(failure)); }
@@ -237,7 +249,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
   function revisit(saved: Question) {
     stop();
     if (saved.listening) { setLengthLevel(saved.listening.length_level); setCharacterDifficulty(saved.listening.character_difficulty); }
-    setQuestion(saved); setReview(null); setAnswer(""); setError("");
+    setQuestion({ ...saved }); setReview(null); setAnswer(""); setError("");
     submission.current = null; retryId.current = null; generationId.current = null;
     remember("exercise", saved.id);
     action("Started another attempt at a saved question");

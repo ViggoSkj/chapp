@@ -13,6 +13,11 @@ const populated = {
   as_of: '2026-11-03T12:00:00Z', total_attempts: 12, graded_attempts: 8,
   fully_correct_attempts: 5, ungraded_attempts: 4, average_correctness: 0.75,
   questions_needing_practice: 2, current_streak_days: 3, best_streak_days: 5, activity,
+  measurements: {
+    listening_plays: 7, played_listening_exercises: 3, median_plays_per_listening_exercise: 2,
+    median_reading_milliseconds: 18000, median_reverse_milliseconds: null,
+    median_listening_milliseconds: 27200, median_grading_milliseconds: 4000,
+  },
 };
 let progress = populated;
 let accountStatus = 200;
@@ -65,7 +70,10 @@ const errors = [];
     assert.match(await page.getByRole('img', { name: /^12 submitted attempts/ }).getAttribute('aria-label'), /last 7 days/);
     await page.getByLabel('Activity period').selectOption('28');
     await page.locator('summary').filter({ hasText: 'View daily counts' }).click();
-    assert.equal(await page.locator('tbody tr').count(), 28);
+    assert.equal(await page.getByRole('region', { name: 'Practice activity' }).locator('tbody tr').count(), 28);
+    await page.getByRole('heading', { name: 'Practice pace' }).waitFor();
+    await page.getByText('7 listening plays across 3 played exercises', { exact: false }).waitFor();
+    assert.match(await page.getByRole('row', { name: 'Listening 27.2 s' }).innerText(), /27\.2 s/);
     await noOverflow();
     await page.screenshot({ path: path.join(out, 'progress-desktop.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });

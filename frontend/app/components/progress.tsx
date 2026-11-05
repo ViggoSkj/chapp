@@ -65,6 +65,27 @@ function Summary({ progress }: { progress: PracticeProgress }) {
   </div>)}</div>;
 }
 
+function PracticeMeasurements({ measurements }: { measurements: NonNullable<PracticeProgress["measurements"]> }) {
+  const seconds = (milliseconds: number | null) => milliseconds === null ? "—" : `${(milliseconds / 1000).toLocaleString("en", { maximumFractionDigits: 1 })} s`;
+  const rows = [
+    ["Mandarin → English", seconds(measurements.median_reading_milliseconds)],
+    ["English → Mandarin", seconds(measurements.median_reverse_milliseconds)],
+    ["Listening", seconds(measurements.median_listening_milliseconds)],
+    ["Grading", seconds(measurements.median_grading_milliseconds)],
+  ];
+  return <section className="panel detail-panel">
+    <h2>Practice pace</h2>
+    <p>Last 28 days · {measurements.listening_plays} listening plays across {measurements.played_listening_exercises} played exercises, including replays.</p>
+    {measurements.median_plays_per_listening_exercise !== null &&
+      <p>Median plays per listening exercise: {measurements.median_plays_per_listening_exercise}.</p>}
+    <div className="table-scroll"><table>
+      <thead><tr><th scope="col">Activity</th><th scope="col">Median time</th></tr></thead>
+      <tbody>{rows.map(([label, value]) => <tr key={label}><th scope="row">{label}</th><td>{value}</td></tr>)}</tbody>
+    </table></div>
+    <p>Exercise timing counts time in the visible tab before submission. Grading is measured separately. A dash means no timing was recorded.</p>
+  </section>;
+}
+
 export function ProgressDashboard({ overview = false }: { overview?: boolean }) {
   const { state, learner, refresh } = useAccount();
   const [revision, setRevision] = useState(0);
@@ -99,6 +120,7 @@ export function ProgressDashboard({ overview = false }: { overview?: boolean }) 
         <div className={styles.toolbar}><span>Saved practice · all-time totals</span><button className="button secondary" onClick={() => setRevision(value => value + 1)}>Refresh progress</button></div>
         <Summary progress={progress} />
         <StudyGoals key={owner} progress={progress} />
+        {!overview && progress.measurements && <PracticeMeasurements measurements={progress.measurements} />}
         {progress.total_attempts === 0 && <section className={`panel detail-panel ${styles.notice}`}><h2>Your first small step.</h2><p>No saved attempts yet. Submit a sentence answer to start building your practice history.</p><Link className="button primary" href="/sentences">Start sentence practice</Link></section>}
         {progress.ungraded_attempts > 0 && <p className={styles.notice} role="note">{progress.ungraded_attempts} {progress.ungraded_attempts === 1 ? "attempt has" : "attempts have"} no completed grade. Pending or failed grading does not lower your average score.</p>}
         <div className={styles.insights}><Activity progress={progress} /><section className={`panel ${styles.next}`}>

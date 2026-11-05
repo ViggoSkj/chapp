@@ -79,7 +79,8 @@ export function useCachedAudio(contextKey: string) {
       audio.onended = () => { if (ticket === sequence.current) { stop(); onEnded?.(); } };
       audio.onerror = () => { if (ticket === sequence.current) { stop(); setError("Audio could not play. You can still read the explanation."); } };
       await audio.play();
-      if (ticket === sequence.current) { setPlaying(true); setLoading(false); resume(); }
+      if (ticket !== sequence.current) return false;
+      setPlaying(true); setLoading(false); resume();
       return true;
     } catch (failure) {
       if (ticket === sequence.current && !controller.signal.aborted) {

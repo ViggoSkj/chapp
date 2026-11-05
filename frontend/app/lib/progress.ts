@@ -16,4 +16,13 @@ export type PracticeProgress = {
   current_streak_days: number;
   best_streak_days: number;
   activity: PracticeActivityDay[];
+  measurements?: {
+    listening_plays: number;
+    played_listening_exercises: number;
+    median_plays_per_listening_exercise: number | null;
+    median_reading_milliseconds: number | null;
+    median_reverse_milliseconds: number | null;
+    median_listening_milliseconds: number | null;
+    median_grading_milliseconds: number | null;
+  } | null;
 };

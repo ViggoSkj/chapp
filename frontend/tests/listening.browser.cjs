@@ -7,6 +7,8 @@ const prompt = '我很好。';
 const questions = new Map();
 const reviews = new Map();
 const generated = [];
+const events = [];
+const submissions = [];
 const errors = [];
 let unavailable = false;
 let badAudio = false;
@@ -42,12 +44,16 @@ const uuid = () => '00000000-0000-4000-8000-' + String(++id).padStart(12, '0');
     } else if (endpoint.endsWith('/sound') && badAudio) { await route.fulfill({ status: 400, contentType: 'text/plain', body: 'invalid-listening-content' }); return; }
     else if (endpoint.endsWith('/sound')) result = { content_type: 'audio/mpeg', audio_data: 'SUQzAQ==', timings: Array.from(prompt).map((character, index) => ({ character, start_seconds: index * .3, end_seconds: (index + 1) * .3 })) };
     else if (endpoint.startsWith('/exercises/') && endpoint.endsWith('/attempts')) {
+      submissions.push(body);
       const question = questions.get(endpoint.split('/')[2]);
       result = { answer: { id: uuid(), exercise_id: question.id, text: body.text, dont_know: body.dont_know, submitted_at: '2026-11-03T15:00:00Z' },
         question: { ...question, content: { mandarin: prompt, english: 'I am well.', pinyin: 'wǒ hěn hǎo' } },
         assessments: [{ id: 'grade', state: 'completed', result: { correctness: body.dont_know ? 0 : 1, feedback: 'Good meaning.', suggested_translation: 'I am well.' } }] };
       reviews.set(result.answer.id, result);
-    } else if (endpoint.endsWith('/events')) result = { saved: true };
+    } else if (endpoint.endsWith('/events')) {
+      events.push(body);
+      result = { saved: true };
+    }
     else if (endpoint.startsWith('/exercises/')) result = questions.get(endpoint.split('/')[2]);
     else if (endpoint.startsWith('/attempts/')) result = reviews.get(endpoint.split('/')[2]);
     else if (endpoint === '/learning-help') {
@@ -81,6 +87,20 @@ const uuid = () => '00000000-0000-4000-8000-' + String(++id).padStart(12, '0');
     await page.getByRole('button', { name: 'Replay audio', exact: true }).waitFor();
     await hidden();
     await page.getByRole('button', { name: 'Stop', exact: true }).click();
+    const replayStart = page.waitForResponse(response => response.url().endsWith('/events') && response.request().postDataJSON().kind === 'audio-started');
+    await page.getByRole('button', { name: 'Replay audio', exact: true }).click();
+    await replayStart;
+    assert.equal(events.filter(event => event.kind === 'audio-started').length, 2);
+    assert.equal(new Set(events.filter(event => event.kind === 'audio-started').map(event => event.event_id)).size, 2);
+    await page.getByRole('button', { name: 'Stop', exact: true }).click();
+    await page.evaluate(() => {
+      const now = performance.now.bind(performance);
+      Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+      performance.now = () => now() + 120000;
+      Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
     await page.getByRole('button', { name: 'Ask about your practice', exact: true }).click();
     await page.getByPlaceholder('Ask about your practice…').fill('Can you give a hint?');
     await page.getByRole('button', { name: 'Send ↑', exact: true }).click();
@@ -91,6 +111,8 @@ const uuid = () => '00000000-0000-4000-8000-' + String(++id).padStart(12, '0');
     await page.getByRole('textbox', { name: /What did you hear/ }).press('Control+Enter');
     await page.getByText('wǒ hěn hǎo', { exact: true }).waitFor();
     await page.getByRole('button', { name: 'Explore 我', exact: true }).waitFor();
+    assert.ok(Number.isInteger(submissions[0].active_milliseconds));
+    assert.ok(submissions[0].active_milliseconds > 0 && submissions[0].active_milliseconds < 120000, 'Hidden time must not count.');
     assert.equal(await page.getByRole('list', { name: 'Exercise progress' }).count(), 0);
     const savedAttempts = page.getByRole('region', { name: 'Saved attempts', exact: true });
     await savedAttempts.getByRole('searchbox').fill('no matching answer');
