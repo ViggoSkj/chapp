@@ -19,6 +19,28 @@ function wave() {
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   page.on('pageerror', error => errors.push(error.message));
+  await page.addInitScript(() => {
+    const fetch = window.fetch.bind(window);
+    let hold = true;
+    window.fetch = async (...args) => {
+      const response = await fetch(...args);
+      if (!hold || !String(args[0]).endsWith('/learning-help/stream')) return response;
+      hold = false;
+      const text = await response.text();
+      const firstLine = text.indexOf('\n') + 1;
+      const encoder = new TextEncoder();
+      return new Response(new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(text.slice(0, 8)));
+          controller.enqueue(encoder.encode(text.slice(8, firstLine)));
+          window.releaseChat = () => {
+            controller.enqueue(encoder.encode(text.slice(firstLine)));
+            controller.close();
+          };
+        },
+      }), { headers: response.headers });
+    };
+  });
   await page.route('**/chapbackend-api/**', async route => {
     const url = new URL(route.request().url());
     const endpoint = url.pathname.replace('/chapbackend-api', '');
@@ -39,6 +61,13 @@ function wave() {
       assessments: [{ id: 'grade', state: 'completed', result: { correctness: 1, feedback: 'You preserved the greeting.', suggested_translation: 'Hello.' } }],
     };
     else if (endpoint.endsWith('/sound')) result = { content_type: 'audio/wav', audio_data: wave() };
+    else if (endpoint === '/learning-help/stream') {
+      const frames = body.message === 'Interrupt me.'
+        ? [{ type: 'delta', text: 'An unfinished reply.' }, { type: 'error' }]
+        : [{ type: 'delta', text: 'Look at how' }, { type: 'delta', text: ' the two characters work together as a greeting.' }, { type: 'done' }];
+      await route.fulfill({ status: 200, contentType: 'application/x-ndjson', body: frames.map(frame => JSON.stringify(frame) + '\n').join('') });
+      return;
+    }
     else if (endpoint === '/learning-help') result = {
       reply: { text: body.character ? (body.character === '学' ? '学 means study or learn. In 学习 it means to study.' : '你 means “you”. In 你好 it forms the greeting “hello”.') : 'Look at how the two characters work together as a greeting.', language: 'en' },
       pronunciation: body.character ? { text: body.character === '学' ? 'xué' : 'nǐ', language: 'zh-Latn-pinyin' } : null,
@@ -54,8 +83,18 @@ function wave() {
     await page.getByRole('button', { name: 'Ask about your practice', exact: true }).click();
     await page.getByLabel('Ask about your practice', { exact: true }).fill('Give me a hint.');
     await page.getByRole('button', { name: 'Send ↑', exact: true }).click();
+    await page.getByText('Look at how', { exact: false }).waitFor();
+    assert.equal(await page.getByText('the two characters work together as a greeting.').count(), 0);
+    assert.equal(await page.getByRole('button', { name: 'Asking…', exact: true }).isDisabled(), true);
+    await page.evaluate(() => window.releaseChat());
     await page.getByText('Look at how the two characters work together as a greeting.').waitFor();
-    let help = calls.filter(call => call.endpoint === '/learning-help').at(-1);
+    await page.getByRole('button', { name: 'Send ↑', exact: true }).waitFor();
+    await page.getByLabel('Ask about your practice', { exact: true }).fill('Interrupt me.');
+    await page.getByRole('button', { name: 'Send ↑', exact: true }).click();
+    await page.getByRole('alert').filter({ hasText: 'The reply was interrupted.' }).waitFor();
+    assert.equal(await page.getByText('An unfinished reply.').count(), 0);
+    assert.equal(await page.getByLabel('Ask about your practice', { exact: true }).inputValue(), 'Interrupt me.');
+    let help = calls.filter(call => call.endpoint === '/learning-help/stream').at(-1);
     assert.equal(help.body.context.revealed, false);
     assert.equal(help.body.context.exercise_id, exerciseId);
     assert.equal(help.body.context.content.length, 1);
@@ -76,7 +115,7 @@ function wave() {
     await page.getByLabel('Ask about your practice', { exact: true }).fill('Explain the greeting.');
     await page.getByRole('button', { name: 'Send ↑', exact: true }).click();
     await page.getByText('Look at how the two characters work together as a greeting.').waitFor();
-    help = calls.filter(call => call.endpoint === '/learning-help').at(-1);
+    help = calls.filter(call => call.endpoint === '/learning-help/stream').at(-1);
     assert.equal(help.body.context.revealed, true);
     assert.ok(help.body.context.actions.some(action => action.includes('Selected character')));
     await page.getByRole('button', { name: 'Close learning chat' }).click();

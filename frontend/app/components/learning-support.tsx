@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAccount } from "./account";
 import { useCachedAudio } from "./use-cached-audio";
-import { helpContext, learningApi, type LearningPage, type LearningReply } from "../lib/learning-api";
+import { helpContext, learningApi, streamLearningReply, type LearningPage, type LearningReply } from "../lib/learning-api";
 import styles from "./learning-support.module.css";
 
 type Support = { page: LearningPage; actions: string[]; publish: (page: LearningPage) => void;
@@ -14,6 +14,7 @@ const SupportContext = createContext<Support | null>(null);
 
 export function LearningSupportProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { state, learner } = useAccount();
   const [published, setPublished] = useState<LearningPage | null>(null);
   const [actionState, setActionState] = useState<{ key: string; items: string[] }>({ key: "", items: [] });
   const [chatOpen, setChatOpen] = useState(false);
@@ -34,7 +35,7 @@ export function LearningSupportProvider({ children }: { children: ReactNode }) {
   return <SupportContext.Provider value={value}>{children}
     {selected?.key === contextKey && page.revealed && <CharacterDetails key={contextKey + selected.character}
       character={selected.character} page={page} actions={actions} close={() => setSelected(null)} action={action} />}
-    <LearningChat key={contextKey} page={page} actions={actions} open={chatOpen} setOpen={setChatOpen} />
+    <LearningChat key={JSON.stringify([state, learner?.chapp_user_id, contextKey])} page={page} actions={actions} open={chatOpen} setOpen={setChatOpen} />
   </SupportContext.Provider>;
 }
 
@@ -112,27 +113,35 @@ function LearningChat({ page, actions, open, setOpen }: { page: LearningPage; ac
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; text: string }[]>([]);
   const [busy, setBusy] = useState(false);
+  const [partial, setPartial] = useState("");
   const [error, setError] = useState("");
   const controller = useRef<AbortController | null>(null);
   const list = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { if (open) input.current?.focus(); }, [open]);
   useEffect(() => () => controller.current?.abort(), []);
-  useEffect(() => { list.current?.scrollTo({ top: list.current.scrollHeight, behavior: "smooth" }); }, [messages, busy]);
+  useEffect(() => { list.current?.scrollTo({ top: list.current.scrollHeight }); }, [messages, busy, partial]);
   async function send() {
-    const text = draft.trim(); if (!text || busy) return;
+    const text = draft.trim(); if (!text || controller.current || state !== "signed-in") return;
     setBusy(true); setError(""); setDraft("");
     const previous = messages.slice(-8);
     setMessages(items => [...items, { role: "user", text }]);
     const request = new AbortController(); controller.current = request;
     try {
-      const result = await learningApi<LearningReply>("/learning-help", {
+      const reply = await streamLearningReply({
         context: helpContext(page, actions), message: text, history: previous,
-      }, request.signal);
-      if (!request.signal.aborted) setMessages(items => [...items, { role: "assistant", text: result.reply.text }]);
+      }, value => { if (!request.signal.aborted) setPartial(value); }, request.signal);
+      if (!request.signal.aborted) setMessages(items => [...items, { role: "assistant", text: reply }]);
     } catch (failure) {
-      if (!request.signal.aborted) { setError(failure instanceof Error ? failure.message : "The reply could not load."); setDraft(text); }
-    } finally { if (!request.signal.aborted) setBusy(false); }
+      if (!request.signal.aborted) {
+        setMessages(items => items.slice(0, -1));
+        setError(failure instanceof Error ? failure.message : "The reply could not load.");
+        setDraft(current => current || text);
+      }
+    } finally {
+      if (controller.current === request) controller.current = null;
+      if (!request.signal.aborted) { setPartial(""); setBusy(false); }
+    }
   }
   if (!["/", "/sentences", "/listening", "/practice", "/reviews", "/vocabulary", "/progress"].includes(page.page)) return null;
   return <aside className={styles.chatDock} aria-label="Learning companion">
@@ -143,7 +152,7 @@ function LearningChat({ page, actions, open, setOpen }: { page: LearningPage; ac
       <div ref={list} className={styles.messages} role="log" aria-live="polite" aria-label="Learning conversation">
         <p className={styles.welcome}>Ask about what you’re learning. I can help with grammar, meaning, and pronunciation{page.revealed ? "." : " without giving away the answer."}</p>
         {messages.map((item, index) => <p key={index} className={item.role === "user" ? styles.userMessage : styles.assistantMessage}><span className={styles.srOnly}>{item.role === "user" ? "You: " : "Companion: "}</span>{item.text}</p>)}
-        {busy && <p className={styles.assistantMessage}>Thinking…</p>}
+        {busy && <p className={styles.assistantMessage} aria-live="off"><span className={styles.srOnly}>Companion: </span>{partial || "Thinking…"}</p>}
       </div>
       {state !== "signed-in" ? <p className={styles.signIn}><Link href="/login">Sign in to chat</Link></p> : <form className={styles.composer} onSubmit={event => { event.preventDefault(); void send(); }}>
         {error && <p role="alert">{error}</p>}

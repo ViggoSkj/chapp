@@ -56,9 +56,11 @@ const uuid = () => '00000000-0000-4000-8000-' + String(++id).padStart(12, '0');
     }
     else if (endpoint.startsWith('/exercises/')) result = questions.get(endpoint.split('/')[2]);
     else if (endpoint.startsWith('/attempts/')) result = reviews.get(endpoint.split('/')[2]);
-    else if (endpoint === '/learning-help') {
+    else if (endpoint === '/learning-help/stream') {
       if (!body.context.revealed) assert.deepEqual(body.context.content, [], 'Hidden transcript must not enter companion context.');
-      result = { reply: { text: 'Listen again for the sounds.', language: 'en' } };
+      const frames = [{ type: 'delta', text: 'Listen again for the sounds.' }, { type: 'done' }];
+      await route.fulfill({ status: 200, contentType: 'application/x-ndjson', body: frames.map(frame => JSON.stringify(frame) + '\n').join('') });
+      return;
     } else throw new Error('Unexpected endpoint: ' + endpoint);
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(result) });
   });
