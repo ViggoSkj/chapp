@@ -7,6 +7,8 @@ const prompt = '我很好。';
 const questions = new Map();
 const reviews = new Map();
 const generated = [];
+const patternRequests = [];
+let patternUncertain = true;
 const events = [];
 const submissions = [];
 const errors = [];
@@ -35,6 +37,13 @@ const uuid = () => '00000000-0000-4000-8000-' + String(++id).padStart(12, '0');
     if (endpoint === '/me') result = { chapp_user_id: 'listening-owner' };
     else if (endpoint === '/login-completions') result = { source_state: 'ready' };
     else if (endpoint === '/attempts') result = Array.from(reviews.values()).map(item => item.answer);
+    else if (endpoint.endsWith('/pattern-practice')) {
+      patternRequests.push(body);
+      if (patternUncertain) { patternUncertain = false; await route.abort('failed'); return; }
+      const original = reviews.get(endpoint.split('/')[2]).question;
+      result = { id: uuid(), mandarin: '', difficulty: original.difficulty, listening: original.listening };
+      questions.set(result.id, result);
+    }
     else if (endpoint === '/exercises') {
       generated.push(body);
       if (uncertain) { uncertain = false; await route.abort('failed'); return; }
@@ -116,6 +125,7 @@ const uuid = () => '00000000-0000-4000-8000-' + String(++id).padStart(12, '0');
     assert.ok(Number.isInteger(submissions[0].active_milliseconds));
     assert.ok(submissions[0].active_milliseconds > 0 && submissions[0].active_milliseconds < 120000, 'Hidden time must not count.');
     assert.equal(await page.getByRole('list', { name: 'Exercise progress' }).count(), 0);
+    assert.equal(await page.getByRole('button', { name: 'Practice this pattern' }).count(), 0);
     const savedAttempts = page.getByRole('region', { name: 'Saved attempts', exact: true });
     await savedAttempts.getByRole('searchbox').fill('no matching answer');
     await savedAttempts.getByText('No saved answers match your search.').waitFor();
@@ -165,6 +175,15 @@ const uuid = () => '00000000-0000-4000-8000-' + String(++id).padStart(12, '0');
     await page.getByRole('button', { name: 'Don’t know', exact: true }).click();
     await page.getByText('wǒ hěn hǎo', { exact: true }).waitFor();
     await noOverflow();
+    const followUp = page.getByRole('button', { name: 'Practice this pattern', exact: true });
+    await followUp.click();
+    await page.getByRole('alert').filter({ hasText: /fetch|request/i }).waitFor();
+    await followUp.click();
+    await hidden();
+    assert.equal(patternRequests.length, 2);
+    assert.equal(patternRequests[0].request_id, patternRequests[1].request_id);
+    assert.equal(await page.getByRole('region', { name: 'Answer review' }).count(), 0);
+    await page.getByRole('button', { name: 'Listen', exact: true }).waitFor();
     const readingId = uuid();
     questions.set(readingId, { id: readingId, mandarin: prompt, difficulty: 'beginner', listening: null });
     await page.goto(origin + '/listening?exercise=' + readingId);

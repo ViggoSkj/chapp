@@ -41,6 +41,8 @@ async function api<T>(path: string, body?: unknown, signal?: AbortSignal): Promi
     if (text.includes("insufficient-listening-vocabulary")) throw new ApiError("Your reviewed vocabulary is too small for a meaningful phrase. Keep reviewing words in Anki; characters won’t be repeated just to fill the length.", true);
     if (text.includes("invalid-listening-content") || text.includes("no-natural-sentence")) throw new ApiError("A natural phrase could not be made with these settings. Adjust the difficulty or sentence length and try again.", true);
     if (text.includes("listening-length-mismatch")) throw new ApiError("The generated sentence did not fit your selected length. Please generate a new one.", true);
+    if (text.includes("pattern-practice-repeated-prompt")) throw new ApiError("The follow-up repeated the original exercise. Try again for a fresh one.", true);
+    if (text.includes("pattern-practice-requires-mistake")) throw new ApiError("Pattern practice is available after a graded mistake.", true);
     if (text.includes("invalid-listening-options")) throw new ApiError("Choose a supported length and character difficulty, then try again.", true);
     throw new ApiError(code ? `Practice unavailable: ${code}.` : `The request could not complete (${response.status}). Your saved submissions remain available in history.`, !!code);
   }
@@ -80,12 +82,16 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
   const { action } = useLearningSupport();
   const submission = useRef<{ submission_id: string; text: string; dont_know?: boolean; active_milliseconds?: number } | null>(null);
   const retryId = useRef<string | null>(null);
+  const patternRequest = useRef<{ attemptId: string; requestId: string } | null>(null);
+  const patternExercise = useRef<string | null>(null);
   const generationId = useRef<string | null>(null);
   const audioFirst = listeningPractice || !!question?.listening;
   const reverseQuestion = question?.answer_language === "zh-Hans" || question?.answer_language === "zh" || question?.answer_language === "zh-CN";
   const displayText = review?.question.content.mandarin ?? question?.mandarin ?? "";
   const elapsedMilliseconds = useExerciseTimer(state === "signed-in" ? question : null, ready && !review && !busy);
   const completed = review?.assessments.find(run => run.state === "completed" && run.result);
+  const canPracticePattern = completed?.result !== undefined &&
+    Number.isFinite(completed.result.correctness) && completed.result.correctness >= 0 && completed.result.correctness < 1;
 
   const loadFailedQuestions = useCallback(async (offset: number) => {
     queueRequest.current?.abort();
@@ -180,6 +186,38 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
       record("audio-started");
     }
   }
+  function showQuestion(next: Question, isPattern = false) {
+    patternExercise.current = isPattern ? next.id : null;
+    setQuestion(next);
+    setReview(null);
+    setAnswer("");
+    submission.current = null;
+    retryId.current = null;
+    generationId.current = null;
+    remember("exercise", next.id);
+    void api(`/exercises/${next.id}/events`, { event_id: requestId(), kind: "question-displayed", client_time: new Date().toISOString() }).catch(() => {});
+  }
+
+  async function practicePattern() {
+    if (!review || !canPracticePattern || busy) return;
+    const attemptId = review.answer.id;
+    if (patternRequest.current?.attemptId !== attemptId) {
+      patternRequest.current = { attemptId, requestId: requestId() };
+    }
+    stop();
+    setBusy("Preparing pattern practice…");
+    setError("");
+    try {
+      const next = await api<Question>(`/attempts/${attemptId}/pattern-practice`, { request_id: patternRequest.current.requestId });
+      action("Started a fresh exercise based on a missed pattern");
+      showQuestion(next, true);
+      patternRequest.current = null;
+    } catch (failure) {
+      setError(message(failure));
+      if (failure instanceof ApiError && failure.definitiveGenerationFailure) patternRequest.current = null;
+    } finally { setBusy(""); }
+  }
+
   async function generate() {
     stop(); setBusy(listeningPractice ? "Preparing listening practice…" : "Generating sentence…"); setError("");
     generationId.current ??= requestId();
@@ -188,9 +226,8 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
       const buffered = prefetched.current?.key === settingsKey ? await prefetched.current.promise : null;
       prefetched.current = null;
       const next = buffered ?? await api<Question>("/exercises", generationBody(generationId.current));
-      action("Generated a new sentence"); setQuestion(next); setReview(null); setAnswer(""); submission.current = null; retryId.current = null;
-      remember("exercise", next.id); generationId.current = null;
-      void api(`/exercises/${next.id}/events`, { event_id: requestId(), kind: "question-displayed", client_time: new Date().toISOString() }).catch(() => {});
+      action("Generated a new sentence");
+      showQuestion(next);
     } catch (failure) {
       setError(message(failure));
       // Keep the same key when the response is uncertain, so a network retry cannot pay for a duplicate generation.
@@ -217,7 +254,10 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
       action(dontKnow ? "Chose “Don’t know” and revealed the review" : "Submitted an answer and revealed the review"); setReview(saved); remember("attempt", saved.answer.id);
       if (dontKnow) setAnswer("");
       setHistory(items => [saved.answer, ...items.filter(item => item.id !== saved.answer.id)].slice(0, 20));
-      if (practiceQueue) { void loadFailedQuestions(0); setPlanIndex(index => plan.length ? index + 1 : index); }
+      if (practiceQueue) {
+        void loadFailedQuestions(0);
+        if (patternExercise.current !== question.id) setPlanIndex(index => plan.length ? index + 1 : index);
+      }
       if (!practiceQueue || !plan.length) prepareNext();
     } catch (failure) { setError(message(failure)); }
     finally { setBusy(""); }
@@ -249,6 +289,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
   function revisit(saved: Question) {
     stop();
     if (saved.listening) { setLengthLevel(saved.listening.length_level); setCharacterDifficulty(saved.listening.character_difficulty); }
+    patternExercise.current = null;
     setQuestion({ ...saved }); setReview(null); setAnswer(""); setError("");
     submission.current = null; retryId.current = null; generationId.current = null;
     remember("exercise", saved.id);
@@ -312,6 +353,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
             <div className={cx("review-heading")}><div><span className={cx("eyebrow")}>ANSWER REVIEW</span><h3>{completed?.result ? completed.result.correctness === 1 ? "You’ve got the meaning." : "A little more to discover." : "Your answer is saved."}</h3></div>{completed?.result && <span className={cx("score-badge")}>Correctness: {completed.result.correctness.toFixed(2)} / 1</span>}</div>
             <div className={cx("review-grid")}><div><h4>Reference</h4><p>{reverseQuestion ? review.question.content.mandarin : review.question.content.english}</p><p className={cx("pinyin")} lang="zh-Latn-pinyin">{review.question.content.pinyin}</p></div><div><h4>{completed?.result ? "Your feedback" : "Assessment status"}</h4>{review.answer.dont_know && <p><strong>You chose “Don’t know”.</strong> This counts as 0 and the sentence stays in your practice queue.</p>}{completed?.result ? !review.answer.dont_know && <><p>{completed.result.feedback}</p><p><strong>Suggested translation:</strong> {completed.result.suggested_translation}</p></> : <><p>Assessment is {review.assessments[0]?.state ?? "pending"}. This has not been counted as an incorrect answer.</p><button className={cx("button secondary")} disabled={!!busy} onClick={() => void retry()}>Retry assessment</button></>}</div></div>
             <p className={cx("explore-hint")}><Icon name="spark" size={16} />Select any Chinese character above to explore its meaning and sound.</p>
+            {canPracticePattern && <div className={cx("listen-actions")}><button className={cx("button secondary")} disabled={!!busy} onClick={() => void practicePattern()}><Icon name="spark" size={16} />Practice this pattern</button></div>}
           </section>}
         </> : <div className={cx("exercise-empty")}><span className={cx("empty-symbol")}><Icon name={listeningPractice ? "sound" : "book"} size={32} /></span><span className={cx("eyebrow")}>A LITTLE PRACTICE, EVERY DAY</span><h3>{listeningPractice ? "Make room for listening." : practiceQueue ? "Build on what you know." : "Let’s find the meaning."}</h3><p>{practiceQueue ? "Choose a saved question above, or generate a new sentence. Every new answer is saved as a separate attempt." : listeningPractice ? "Start with a short phrase and familiar characters. Generate your first listening exercise when you’re ready." : "Generate a sentence when you’re ready. Your answer and feedback will be saved to your Chapp account."}</p><div className={cx("empty-guide")}><span>01 · {listeningPractice ? "Listen at your pace" : "Read a new sentence"}</span><span>02 · Try the meaning</span><span>03 · Explore the answer</span></div></div>}
         <div className={cx("exercise-bottom")}><span role="status">{busy || (review ? "Saved to your account" : "Meaning matters; imperfect English is welcome.")}</span><button className={cx("button primary")} disabled={!!busy || !ready} onClick={() => void generate()}><Icon name="spark" size={17} />{listeningPractice ? question ? "Next listening exercise" : "Start listening practice" : question ? "Generate next sentence" : "Generate sentence"}</button></div>
