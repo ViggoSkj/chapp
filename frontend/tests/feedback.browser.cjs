@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 (async () => {
   const browser = await chromium.launch({channel:'msedge',headless:true});
   const page = await browser.newPage({viewport:{width:1440,height:1000}});
-  const questions = new Map(); let n=0, generated=0; const errors=[];
+  const questions = new Map(); const reviews = new Map(); let n=0, generated=0; const errors=[];
   page.on('pageerror', e=>errors.push(e.message));
   await page.route('**/chapbackend-api/**', async route=>{
     const p=new URL(route.request().url()).pathname.replace('/chapbackend-api','');
@@ -27,9 +27,11 @@ const assert = require('node:assert/strict');
       generated++;const id=String(++n);
       value={id,mandarin:body.listening?'':body.reverse?'I am well.':'我很好。',difficulty:body.difficulty,answer_language:body.reverse?'zh-Hans':'en',listening:body.listening};
       questions.set(id,value);
-    }else if(p.endsWith('/attempts')){
+    }else if(p.startsWith('/attempts/'))value=reviews.get(p.split('/')[2]);
+    else if(p.endsWith('/attempts')){
       const q=questions.get(p.split('/')[2]);
       value={answer:{id:'a'+n,text:body.text,exercise_id:q.id,submitted_at:new Date().toISOString()},question:{...q,content:{mandarin:'我很好。',english:'I am well.',pinyin:'wǒ hěn hǎo'}},assessments:[{state:'completed',result:{correctness:1,feedback:'Good.',suggested_translation:q.answer_language==='en'?'I am well.':'我很好。'}}]};
+      reviews.set(value.answer.id,value);
     }else if(p.endsWith('/events'))value={saved:true};
     else throw Error(p);
     await route.fulfill({contentType:'application/json',body:JSON.stringify(value)});
@@ -57,6 +59,16 @@ const assert = require('node:assert/strict');
     await page.getByRole('button',{name:'Ask about your practice',exact:true}).click();
     const box=await page.locator('[aria-label="Learning companion"]').boundingBox().catch(()=>null);
     if(box)assert.ok(box.width>=600);
+    await page.getByRole('button',{name:'Close learning chat',exact:true}).click();
+    await page.getByRole('textbox',{name:/Your Mandarin translation/}).fill('我很好。');
+    await page.getByRole('button',{name:'Submit for grading',exact:true}).click();
+    const review = page.getByRole('region',{name:'Answer review'});
+    await review.getByRole('button',{name:'Explore 我',exact:true}).waitFor();
+    assert.equal(await page.locator('p[lang="en"]').filter({hasText:'I am well.'}).count(),1);
+    assert.equal(await page.getByRole('textbox',{name:/Your Mandarin translation/}).inputValue(),'我很好。');
+    await page.reload();
+    await review.getByRole('button',{name:'Explore 我',exact:true}).waitFor();
+    assert.equal(await page.locator('p[lang="en"]').filter({hasText:'I am well.'}).count(),1);
     await page.goto((process.env.LEARNING_TEST_ORIGIN || 'http://localhost:3010') + '/practice');
     await page.getByRole('button',{name:'Create daily plan',exact:true}).click();
     await page.getByText(/0 of 3 exercises answered/).waitFor();

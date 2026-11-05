@@ -89,7 +89,9 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
   const generationId = useRef<string | null>(null);
   const audioFirst = listeningPractice || !!question?.listening;
   const reverseQuestion = question?.answer_language === "zh-Hans" || question?.answer_language === "zh" || question?.answer_language === "zh-CN";
-  const displayText = review?.question.content.mandarin ?? question?.mandarin ?? "";
+  const promptText = (reverseQuestion ? review?.question.content.english : review?.question.content.mandarin) ?? question?.mandarin ?? "";
+  const mandarinText = review?.question.content.mandarin ?? (reverseQuestion ? "" : promptText);
+  const spokenIndex = sound.spokenText === mandarinText ? sound.activeCharacterIndex : null;
   const elapsedMilliseconds = useExerciseTimer(state === "signed-in" ? question : null, ready && !review && !busy);
   const completed = review?.assessments.find(run => run.state === "completed" && run.result);
   const canPracticePattern = completed?.result !== undefined &&
@@ -175,7 +177,10 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
   }
   useLearningPage({ key: question?.id ?? pagePath, page: pagePath, mode: audioFirst ? "listening-practice" : practiceQueue ? "daily-practice" : "sentence-practice",
     revealed: !!review, exercise_id: question?.id, attempt_id: review?.answer.id,
-    content: question && (!audioFirst || review) ? [{ text: displayText, language: reverseQuestion && !review ? "en" : "zh-Hans" }] : [] });
+    content: question && (!audioFirst || review) ? [
+      { text: promptText, language: reverseQuestion ? "en" : "zh-Hans" },
+      ...(reverseQuestion && review ? [{ text: mandarinText, language: "zh-Hans" }] : []),
+    ] : [] });
   function record(kind: string) {
     action(kind);
     if (!question) return;
@@ -372,13 +377,17 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
         {question ? <>
           <div className={cx("exercise-meta")}><span className={cx("eyebrow")}>{audioFirst ? "LISTEN. WHAT DOES IT MEAN?" : "WHAT DOES THIS SENTENCE MEAN?"}</span><span className={cx("exercise-level")}>{question.listening ? listeningLengths[question.listening.length_level] : question.difficulty}</span></div>
           {audioFirst && !review ? <div className={cx("listening-stage")}><span className={cx("listening-orb")} data-playing={sound.playing}><Icon name="sound" size={36} /></span><h3>{sound.playing ? "Listen closely…" : "Let your ears lead."}</h3><p>The Chinese, pinyin and meaning stay hidden until you answer.</p></div>
-            : <p className={cx("sentence-prompt")} lang={reverseQuestion && !review ? "en" : "zh-CN"}><ExploreText text={displayText} enabled={!!review} activeIndex={sound.spokenText === displayText ? sound.activeCharacterIndex : null} /></p>}
+            : <p className={cx("sentence-prompt")} lang={reverseQuestion ? "en" : "zh-CN"}>{reverseQuestion
+              ? promptText
+              : <ExploreText text={promptText} enabled={!!review} activeIndex={spokenIndex} />}</p>}
           {(audioFirst || review) && <div className={cx("listen-actions")}><button className={cx("button secondary")} disabled={sound.loading || !!busy} onClick={() => void listen()}><Icon name="sound" size={18} />{sound.loading ? "Loading audio…" : playedQuestionId === question.id ? "Replay audio" : "Listen"}</button>{sound.playing && <button className={cx("button secondary")} onClick={stop}>Stop</button>}</div>}
           <label className={cx("translation-draft")}>{audioFirst ? "What did you hear? Write the meaning in English" : reverseQuestion ? "Your Mandarin translation" : "Your English translation"}<textarea value={answer} disabled={!!busy || !!review} onChange={event => setAnswer(event.target.value)} maxLength={8000} rows={4} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter" && !busy && !review && answer.trim()) { event.preventDefault(); void submit(); } }} placeholder="Write the meaning in your own words…" /><span className={cx("draft-hint")}>{review ? "Your saved response" : "Your own words are enough. Ctrl / ⌘ + Enter to submit."}</span></label>
           {!review && <div className={cx("listen-actions")}><button className={cx("button primary")} disabled={!!busy || !answer.trim()} onClick={() => void submit()}>Submit for grading</button><button className={cx("button secondary")} disabled={!!busy} onClick={() => void submit(true)}>Don’t know</button></div>}
           {review && <section className={cx("review-panel")} aria-label="Answer review">
             <div className={cx("review-heading")}><div><span className={cx("eyebrow")}>ANSWER REVIEW</span><h3>{completed?.result ? completed.result.correctness === 1 ? "You’ve got the meaning." : "A little more to discover." : "Your answer is saved."}</h3></div>{completed?.result && <span className={cx("score-badge")}>Correctness: {completed.result.correctness.toFixed(2)} / 1</span>}</div>
-            <div className={cx("review-grid")}><div><h4>Reference</h4><p>{reverseQuestion ? review.question.content.mandarin : review.question.content.english}</p><p className={cx("pinyin")} lang="zh-Latn-pinyin">{review.question.content.pinyin}</p></div><div><h4>{completed?.result ? "Your feedback" : "Assessment status"}</h4>{review.answer.dont_know && <p><strong>You chose “Don’t know”.</strong> This counts as 0 and the sentence stays in your practice queue.</p>}{completed?.result ? !review.answer.dont_know && <><p>{completed.result.feedback}</p><p><strong>Suggested translation:</strong> {completed.result.suggested_translation}</p></> : <><p>Assessment is {review.assessments[0]?.state ?? "pending"}. This has not been counted as an incorrect answer.</p><button className={cx("button secondary")} disabled={!!busy} onClick={() => void retry()}>Retry assessment</button></>}</div></div>
+            <div className={cx("review-grid")}><div><h4>Reference</h4>{reverseQuestion
+              ? <p lang="zh-CN"><ExploreText text={mandarinText} enabled activeIndex={spokenIndex} /></p>
+              : <p>{review.question.content.english}</p>}<p className={cx("pinyin")} lang="zh-Latn-pinyin">{review.question.content.pinyin}</p></div><div><h4>{completed?.result ? "Your feedback" : "Assessment status"}</h4>{review.answer.dont_know && <p><strong>You chose “Don’t know”.</strong> This counts as 0 and the sentence stays in your practice queue.</p>}{completed?.result ? !review.answer.dont_know && <><p>{completed.result.feedback}</p><p><strong>Suggested translation:</strong> {completed.result.suggested_translation}</p></> : <><p>Assessment is {review.assessments[0]?.state ?? "pending"}. This has not been counted as an incorrect answer.</p><button className={cx("button secondary")} disabled={!!busy} onClick={() => void retry()}>Retry assessment</button></>}</div></div>
             <p className={cx("explore-hint")}><Icon name="spark" size={16} />Select any Chinese character above to explore its meaning and sound.</p>
             {canPracticePattern && <div className={cx("listen-actions")}><button className={cx("button secondary")} disabled={!!busy} onClick={() => void practicePattern()}><Icon name="spark" size={16} />Practice this pattern</button></div>}
           </section>}
