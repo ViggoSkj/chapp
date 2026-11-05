@@ -12,7 +12,17 @@ const assert = require('node:assert/strict');
     if(p==='/me')value={chapp_user_id:'feedback-owner'};
     else if(p==='/login-completions')value={source_state:'ready'};
     else if(p==='/attempts'||p==='/exercises/failed')value=[];
-    else if(p==='/daily-plan')value=['reading','reverse','listening'];
+    else if(p==='/daily-plan/session')value=[
+      {kind:'listening',pattern_attempt_id:'saved-mistake',review_number:2},
+      {kind:'reading'}, {kind:'reverse'},
+    ];
+    else if(p==='/attempts/saved-mistake/pattern-review'){
+      assert.equal(body.number,2);
+      assert.ok(body.request_id);
+      const id=String(++n);
+      value={id,mandarin:'',difficulty:'beginner',answer_language:'en',listening:{length_level:0,character_difficulty:0}};
+      questions.set(id,value);
+    }
     else if(p==='/exercises'){
       generated++;const id=String(++n);
       value={id,mandarin:body.listening?'':body.reverse?'I am well.':'我很好。',difficulty:body.difficulty,answer_language:body.reverse?'zh-Hans':'en',listening:body.listening};
@@ -50,6 +60,13 @@ const assert = require('node:assert/strict');
     await page.goto((process.env.LEARNING_TEST_ORIGIN || 'http://localhost:3010') + '/practice');
     await page.getByRole('button',{name:'Create daily plan',exact:true}).click();
     await page.getByText(/0 of 3 exercises answered/).waitFor();
+    await page.getByText('Review block', {exact:true}).waitFor();
+    await page.getByRole('button',{name:'Start pattern review',exact:true}).click();
+    await page.getByRole('textbox',{name:/What did you hear/}).fill('I am well.');
+    assert.equal(await page.getByText('我很好。',{exact:true}).count(),0);
+    await page.getByRole('button',{name:'Submit for grading',exact:true}).click();
+    await page.getByText(/1 of 3 exercises answered/).waitFor();
+    await page.getByText(/Next: Mandarin → English/).waitFor();
     await page.setViewportSize({width:390,height:844});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     assert.deepEqual(errors,[]);

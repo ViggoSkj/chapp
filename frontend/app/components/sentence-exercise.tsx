@@ -17,6 +17,7 @@ type Grade = { correctness: number; feedback: string; suggested_translation: str
 type Run = { id: string; state: string; result?: Grade; error_code?: string };
 type Review = { answer: Answer; question: { id: string; content: { mandarin: string; english: string; pinyin: string }; difficulty: string; answer_language?: string; listening?: ListeningOptions | null }; assessments: Run[] };
 type Difficulty = "beginner" | "intermediate" | "advanced";
+type PlanSlot = { kind: "reading" | "reverse" | "listening"; pattern_attempt_id?: string | null; review_number?: number | null };
 const cx = (names: string) => names.split(/\s+/).map(name => styles[name] ?? name).join(" ");
 class ApiError extends Error {
   constructor(message: string, readonly definitiveGenerationFailure = false) { super(message); }
@@ -41,6 +42,7 @@ async function api<T>(path: string, body?: unknown, signal?: AbortSignal): Promi
     if (text.includes("insufficient-listening-vocabulary")) throw new ApiError("Your reviewed vocabulary is too small for a meaningful phrase. Keep reviewing words in Anki; characters won’t be repeated just to fill the length.", true);
     if (text.includes("invalid-listening-content") || text.includes("no-natural-sentence")) throw new ApiError("A natural phrase could not be made with these settings. Adjust the difficulty or sentence length and try again.", true);
     if (text.includes("listening-length-mismatch")) throw new ApiError("The generated sentence did not fit your selected length. Please generate a new one.", true);
+    if (text.includes("pattern-review-not-due")) throw new ApiError("This review is no longer due. Create a new daily plan to update your review block.", true);
     if (text.includes("pattern-practice-repeated-prompt")) throw new ApiError("The follow-up repeated the original exercise. Try again for a fresh one.", true);
     if (text.includes("pattern-practice-requires-mistake")) throw new ApiError("Pattern practice is available after a graded mistake.", true);
     if (text.includes("invalid-listening-options")) throw new ApiError("Choose a supported length and character difficulty, then try again.", true);
@@ -56,7 +58,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
   const [lengthLevel, setLengthLevel] = useState(0);
   const [characterDifficulty, setCharacterDifficulty] = useState(0);
   const [minutes, setMinutes] = useState(15);
-  const [plan, setPlan] = useState<string[]>([]);
+  const [plan, setPlan] = useState<PlanSlot[]>([]);
   const [planIndex, setPlanIndex] = useState(0);
   const prefetched = useRef<{ key: string; id: string; promise: Promise<Question | null> } | null>(null);
   const [reverse, setReverse] = useState(false);
@@ -83,7 +85,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
   const submission = useRef<{ submission_id: string; text: string; dont_know?: boolean; active_milliseconds?: number } | null>(null);
   const retryId = useRef<string | null>(null);
   const patternRequest = useRef<{ attemptId: string; requestId: string } | null>(null);
-  const patternExercise = useRef<string | null>(null);
+  const plannedExercise = useRef<string | null>(null);
   const generationId = useRef<string | null>(null);
   const audioFirst = listeningPractice || !!question?.listening;
   const reverseQuestion = question?.answer_language === "zh-Hans" || question?.answer_language === "zh" || question?.answer_language === "zh-CN";
@@ -143,14 +145,17 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
     return () => { active = false; queueRequest.current?.abort(); };
   }, [state, practiceQueue, loadFailedQuestions]);
 
-  const planKind = plan[planIndex];
+  const planSlot = plan[planIndex];
+  const planKind = planSlot?.kind;
+  const reviewCount = plan.filter(slot => slot.pattern_attempt_id).length;
   const nextListening = listeningPractice || (practiceQueue && planKind === "listening");
   const nextReverse = !nextListening && (practiceQueue && planKind ? planKind === "reverse" : reverse);
-  const settingsKey = JSON.stringify([state, learner?.chapp_user_id, difficulty, nextReverse, nextListening, lengthLevel, characterDifficulty, planIndex]);
+  const settingsKey = JSON.stringify([state, learner?.chapp_user_id, difficulty, nextReverse, nextListening, lengthLevel, characterDifficulty, planIndex, planSlot?.pattern_attempt_id, planSlot?.review_number]);
   const latestSettings = useRef(settingsKey);
   latestSettings.current = settingsKey;
   function generationBody(id: string) { return { request_id: id, difficulty, reverse: nextReverse, ...(nextListening ? { listening: { length_level: lengthLevel, character_difficulty: characterDifficulty } } : {}) }; }
   function prepareNext() {
+    if (planSlot?.pattern_attempt_id) return;
     const key = settingsKey;
     if (prefetched.current?.key === key) return;
     const id = requestId();
@@ -186,8 +191,8 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
       record("audio-started");
     }
   }
-  function showQuestion(next: Question, isPattern = false) {
-    patternExercise.current = isPattern ? next.id : null;
+  function showQuestion(next: Question, isPlanned = false) {
+    plannedExercise.current = isPlanned ? next.id : null;
     setQuestion(next);
     setReview(null);
     setAnswer("");
@@ -210,7 +215,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
     try {
       const next = await api<Question>(`/attempts/${attemptId}/pattern-practice`, { request_id: patternRequest.current.requestId });
       action("Started a fresh exercise based on a missed pattern");
-      showQuestion(next, true);
+      showQuestion(next);
       patternRequest.current = null;
     } catch (failure) {
       setError(message(failure));
@@ -218,16 +223,35 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
     } finally { setBusy(""); }
   }
 
+  async function createPlan() {
+    setBusy("Planning your session…");
+    setError("");
+    try {
+      const items = await api<PlanSlot[]>("/daily-plan/session?minutes=" + minutes);
+      setPlan(items);
+      setPlanIndex(0);
+      plannedExercise.current = null;
+      generationId.current = null;
+      prefetched.current = null;
+      setNotice("Your plan is ready. Start the first exercise when you’re ready.");
+    } catch (failure) { setError(message(failure)); }
+    finally { setBusy(""); }
+  }
+
   async function generate() {
-    stop(); setBusy(listeningPractice ? "Preparing listening practice…" : "Generating sentence…"); setError("");
+    stop();
+    setBusy(planSlot?.pattern_attempt_id ? "Preparing your pattern review…" : listeningPractice ? "Preparing listening practice…" : "Generating sentence…");
+    setError("");
     generationId.current ??= requestId();
     try {
       if (prefetched.current?.key === settingsKey) generationId.current = prefetched.current.id;
       const buffered = prefetched.current?.key === settingsKey ? await prefetched.current.promise : null;
       prefetched.current = null;
-      const next = buffered ?? await api<Question>("/exercises", generationBody(generationId.current));
-      action("Generated a new sentence");
-      showQuestion(next);
+      const next = planSlot?.pattern_attempt_id
+        ? await api<Question>(`/attempts/${planSlot.pattern_attempt_id}/pattern-review`, { request_id: generationId.current, number: planSlot.review_number })
+        : buffered ?? await api<Question>("/exercises", generationBody(generationId.current));
+      action(planSlot?.pattern_attempt_id ? "Started a scheduled pattern review" : "Generated a new sentence");
+      showQuestion(next, !!planSlot);
     } catch (failure) {
       setError(message(failure));
       // Keep the same key when the response is uncertain, so a network retry cannot pay for a duplicate generation.
@@ -256,7 +280,10 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
       setHistory(items => [saved.answer, ...items.filter(item => item.id !== saved.answer.id)].slice(0, 20));
       if (practiceQueue) {
         void loadFailedQuestions(0);
-        if (patternExercise.current !== question.id) setPlanIndex(index => plan.length ? index + 1 : index);
+        if (plannedExercise.current === question.id) {
+          plannedExercise.current = null;
+          setPlanIndex(index => index + 1);
+        }
       }
       if (!practiceQueue || !plan.length) prepareNext();
     } catch (failure) { setError(message(failure)); }
@@ -289,7 +316,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
   function revisit(saved: Question) {
     stop();
     if (saved.listening) { setLengthLevel(saved.listening.length_level); setCharacterDifficulty(saved.listening.character_difficulty); }
-    patternExercise.current = null;
+    plannedExercise.current = null;
     setQuestion({ ...saved }); setReview(null); setAnswer(""); setError("");
     submission.current = null; retryId.current = null; generationId.current = null;
     remember("exercise", saved.id);
@@ -304,7 +331,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
     <nav className={cx("practice-page-links")} aria-label="Practice modes"><Link href="/practice" aria-current={practiceQueue ? "page" : undefined}><Icon name="spark" size={17} />Daily practice</Link><Link href="/sentences" aria-current={!practiceQueue && !listeningPractice ? "page" : undefined}><Icon name="book" size={17} />Sentence practice</Link><Link href="/listening" aria-current={listeningPractice ? "page" : undefined}><Icon name="sound" size={17} />Listening practice</Link></nav>
     {error && <p className={cx("speech-status")} role="alert">{error}</p>}
     {notice && <p className={cx("speech-status")} role="status">{notice}</p>}
-    {practiceQueue && <section className={cx("panel exercise-panel queue-panel")}><div className={cx("exercise-toolbar")}><div><h2>Daily Q&amp;A</h2><p>A mix of translation and listening. Duration is an estimate, not a timed deadline.</p></div></div><div className={cx("exercise-body")}><label>Practice duration: {minutes} minutes<input aria-label="Daily practice duration" type="range" min={5} max={60} step={5} value={minutes} onChange={event => setMinutes(Number(event.target.value))} /></label><button className={cx("button primary")} disabled={!!busy} onClick={async () => { setBusy("Planning your session…"); try { const items = await api<string[]>("/daily-plan?minutes=" + minutes); setPlan(items); setPlanIndex(0); prefetched.current = null; setNotice("Your plan is ready. Generate the first exercise to begin."); } catch (failure) { setError(message(failure)); } finally { setBusy(""); } }}>Create daily plan</button>{plan.length > 0 && <p role="status">{Math.min(planIndex, plan.length)} of {plan.length} exercises answered · {planIndex >= plan.length ? "Plan complete. You can stop here or create another plan." : "Next: " + (planKind === "reverse" ? "English → Mandarin" : planKind === "listening" ? "Listening" : "Mandarin → English")}</p>}</div></section>}
+    {practiceQueue && <section className={cx("panel exercise-panel queue-panel")}><div className={cx("exercise-toolbar")}><div><h2>Daily Q&amp;A</h2><p>A mix of translation and listening. Duration is an estimate, not a timed deadline.</p></div></div><div className={cx("exercise-body")}><label>Practice duration: {minutes} minutes<input aria-label="Daily practice duration" type="range" min={5} max={60} step={5} value={minutes} onChange={event => setMinutes(Number(event.target.value))} /></label><button className={cx("button primary")} disabled={!!busy} onClick={() => void createPlan()}>Create daily plan</button>{reviewCount > 0 && <p><strong>Review block</strong> · {reviewCount} due {reviewCount === 1 ? "pattern" : "patterns"} included in your plan.</p>}{plan.length > 0 && <p role="status">{Math.min(planIndex, plan.length)} of {plan.length} exercises answered · {planIndex >= plan.length ? "Plan complete. You can stop here or create another plan." : (planSlot?.pattern_attempt_id ? "Next: Pattern review · " : "Next: ") + (planKind === "reverse" ? "English → Mandarin" : planKind === "listening" ? "Listening" : "Mandarin → English")}</p>}</div></section>}
     {practiceQueue && <section className={cx("panel exercise-panel queue-panel")} aria-busy={queueLoading} aria-label="Your practice queue">
       <div className={cx("exercise-toolbar")}><div><h2>Your practice queue</h2><p>Revisit sentences where your last graded answer missed some meaning.</p></div><button className={cx("button secondary")} disabled={queueLoading} onClick={() => void loadFailedQuestions(queueOffset)}>Refresh queue</button></div>
       <div className={cx("exercise-body")}>
@@ -356,7 +383,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
             {canPracticePattern && <div className={cx("listen-actions")}><button className={cx("button secondary")} disabled={!!busy} onClick={() => void practicePattern()}><Icon name="spark" size={16} />Practice this pattern</button></div>}
           </section>}
         </> : <div className={cx("exercise-empty")}><span className={cx("empty-symbol")}><Icon name={listeningPractice ? "sound" : "book"} size={32} /></span><span className={cx("eyebrow")}>A LITTLE PRACTICE, EVERY DAY</span><h3>{listeningPractice ? "Make room for listening." : practiceQueue ? "Build on what you know." : "Let’s find the meaning."}</h3><p>{practiceQueue ? "Choose a saved question above, or generate a new sentence. Every new answer is saved as a separate attempt." : listeningPractice ? "Start with a short phrase and familiar characters. Generate your first listening exercise when you’re ready." : "Generate a sentence when you’re ready. Your answer and feedback will be saved to your Chapp account."}</p><div className={cx("empty-guide")}><span>01 · {listeningPractice ? "Listen at your pace" : "Read a new sentence"}</span><span>02 · Try the meaning</span><span>03 · Explore the answer</span></div></div>}
-        <div className={cx("exercise-bottom")}><span role="status">{busy || (review ? "Saved to your account" : "Meaning matters; imperfect English is welcome.")}</span><button className={cx("button primary")} disabled={!!busy || !ready} onClick={() => void generate()}><Icon name="spark" size={17} />{listeningPractice ? question ? "Next listening exercise" : "Start listening practice" : question ? "Generate next sentence" : "Generate sentence"}</button></div>
+        <div className={cx("exercise-bottom")}><span role="status">{busy || (review ? "Saved to your account" : "Meaning matters; imperfect English is welcome.")}</span><button className={cx("button primary")} disabled={!!busy || !ready} onClick={() => void generate()}><Icon name="spark" size={17} />{planSlot?.pattern_attempt_id ? "Start pattern review" : listeningPractice ? question ? "Next listening exercise" : "Start listening practice" : question ? "Generate next sentence" : "Generate sentence"}</button></div>
       </div>
       {sound.error && <p className={cx("speech-status")} role="alert">{sound.error}</p>}
       <details className={cx("audio-settings")}><summary>Audio settings</summary><div className={cx("audio-controls")}><label>Playback speed<select value={rate} onChange={event => { stop(); setRate(Number(event.target.value)); }}><option value={0.65}>Extra slow</option><option value={0.8}>Slow</option><option value={1}>Normal</option></select></label></div></details>

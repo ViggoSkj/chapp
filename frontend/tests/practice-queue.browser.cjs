@@ -123,8 +123,10 @@ function reviewFor(question, body, completed) {
     await page.getByRole('button', { name: 'Retry assessment', exact: true }).click();
     await page.getByText('You preserved the meaning.', { exact: true }).waitFor();
     await queue.getByText('No questions to revisit on this page.', { exact: false }).waitFor();
+    const beforeManualGeneration = generations;
     await queue.getByRole('button', { name: 'Generate a new sentence' }).click();
-    assert.equal(generations, 1);
+    await page.getByRole('button', { name: 'Submit for grading', exact: true }).waitFor();
+    assert.equal(generations, beforeManualGeneration + 1, 'Manual generation starts one request after the previous preview is invalidated.');
 
     await page.setViewportSize({ width: 390, height: 844 });
     failed = sourceQuestions.slice(0, 1);
