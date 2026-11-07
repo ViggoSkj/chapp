@@ -16,3 +16,8 @@ The owner wants every mode to have before/after answer-reveal states, clickable
 character meanings after reveal, and a lower-right question window informed by
 the current page and the learner's recent actions. Apply these as shared product
 requirements across modes. Keep the requirements current when preferences change.
+
+## Documentation navigation
+
+Start with [docs/README.md](docs/README.md) for composition, shared exercise states,
+and change/test guidance. Keep these focused guides current when boundaries change.
