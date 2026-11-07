@@ -203,3 +203,18 @@ in-memory audio for replay. Playback stays explicit. Standalone audio can differ
 from a polyphonic character's phrase reading, which the panel labels separately.
 An unseen character still needs one initial generation; later definitions persist
 across sessions and restarts. No bulk paid dictionary warm-up is performed.
+
+## Guided Daily Q&A (2026-11-06)
+
+Creating a daily plan opens its first exercise automatically. Show one exercise
+at a time with its position and plan progress. Keep the saved review visible
+until the learner selects Next exercise or finishes the plan. Keep the practice
+queue and saved attempts available outside the guided session.
+
+## Exercise layout comparison (2026-11-06)
+
+Daily Q&A, Sentence practice and Listening share a live layout picker. Offer
+Classic, Compact, Focus, Split and Immersive. The choice stays in the current
+browser and changes only presentation. Keep the current prompt, draft,
+review and daily-plan position while switching. Stack Split on narrow screens.
+
