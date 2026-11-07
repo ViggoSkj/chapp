@@ -33,6 +33,7 @@ function reviewFor(question, body, completed) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   page.on('pageerror', error => errors.push(error.message));
   await page.route('**/chapbackend-api/**', async route => {
+    if (new URL(route.request().url()).pathname === "/chapbackend-api/usage/events") return route.fulfill({ contentType: "application/json", body: "{\"accepted\":true}" });
     const url = new URL(route.request().url());
     const endpoint = url.pathname.replace('/chapbackend-api', '');
     let body = {};

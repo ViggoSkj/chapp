@@ -9,6 +9,7 @@ import { ExploreText, useLearningPage, useLearningSupport } from "./learning-sup
 import { useCachedAudio } from "./use-cached-audio";
 import { useExerciseTimer } from "./use-exercise-timer";
 import { ExerciseLayoutPicker, useExerciseLayout } from "./exercise-layout";
+import { trackUsage } from "../lib/usage";
 import { Icon } from "./icons";
 import styles from "./language-practice.module.css";
 
@@ -213,6 +214,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
     record("audio-requested");
     if (await sound.play("/exercises/" + question.id + "/sound", {}, rate, () => record("audio-ended"))) {
       setPlayedQuestionId(question.id);
+      trackUsage("action", "audio-started");
       record("audio-started");
     }
   }
@@ -259,6 +261,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
       clearExercise();
       setPlan(items);
       setPlanIndex(0);
+      trackUsage("action", "plan-created", items.length);
       await generate(items[0], false);
     } catch (failure) { setError(message(failure)); }
     finally { setBusy(""); }
@@ -282,6 +285,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
   }
 
   function endPlan() {
+    trackUsage("action", planComplete ? "plan-completed" : "plan-ended", planIndex);
     setNotice(planComplete
       ? `Daily plan complete. You answered all ${plan.length} exercises.`
       : `Daily plan ended. ${planIndex} of ${plan.length} exercises answered.`);
@@ -309,6 +313,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
       if (window.location.pathname !== pagePath) return;
       action(slot?.pattern_attempt_id ? "Started a scheduled pattern review" : "Generated a new sentence");
       showQuestion(next, !!slot);
+      trackUsage("action", "exercise-generated");
     } catch (failure) {
       setError(message(failure));
       // Keep the same key when the response is uncertain, so a network retry cannot pay for a duplicate generation.
@@ -330,6 +335,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
     }
     try {
       const saved = await api<Review>(`/exercises/${question.id}/attempts`, submission.current);
+      trackUsage("action", "answer-submitted");
       // Discard a preview from an earlier answer, even when its settings still match.
       prefetched.current = null;
       action(dontKnow ? "Chose “Don’t know” and revealed the review" : "Submitted an answer and revealed the review"); setReview(saved); remember("attempt", saved.answer.id);
@@ -352,6 +358,7 @@ export function SentenceExercise({ practiceQueue = false, listeningPractice = fa
     try {
       const saved = await api<Review>("/attempts/" + review.answer.id + "/assessment-retries", { request_id: retryId.current });
       setReview(saved); retryId.current = null;
+      trackUsage("action", "assessment-retried");
       // A next question generated before a successful grading retry used older evidence.
       if (saved.assessments.some(run => run.state === "completed" && run.result)) prefetched.current = null;
       if (practiceQueue) void loadFailedQuestions(0);

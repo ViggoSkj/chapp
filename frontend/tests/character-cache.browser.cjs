@@ -19,6 +19,7 @@ function wave() {
   const origin = process.env.LEARNING_TEST_ORIGIN || 'http://localhost:3018';
   page.on('pageerror', error => errors.push(error.message));
   await page.route('**/chapbackend-api/**', async route => {
+    if (new URL(route.request().url()).pathname === "/chapbackend-api/usage/events") return route.fulfill({ contentType: "application/json", body: "{\"accepted\":true}" });
     const endpoint = new URL(route.request().url()).pathname.replace('/chapbackend-api', '');
     const body = route.request().method() === 'POST' ? route.request().postDataJSON() : {};
     calls.push({ endpoint, body });

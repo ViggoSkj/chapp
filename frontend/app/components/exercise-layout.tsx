@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import styles from "./language-practice.module.css";
+import { trackUsage } from "../lib/usage";
 
 const layouts = [
   { id: "classic", name: "Classic", description: "The original stacked exercise card." },
@@ -46,6 +47,7 @@ function selectLayout(layout: ExerciseLayout) {
     temporaryLayout = layout;
   }
   window.dispatchEvent(new Event(layoutKey));
+  trackUsage("action", "layout-changed", 0, { layout });
 }
 
 export function useExerciseLayout() {

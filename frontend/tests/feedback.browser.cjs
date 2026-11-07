@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
   const patternRequests = [];
   page.on('pageerror', e=>errors.push(e.message));
   await page.route('**/chapbackend-api/**', async route=>{
+    if (new URL(route.request().url()).pathname === "/chapbackend-api/usage/events") return route.fulfill({ contentType: "application/json", body: "{\"accepted\":true}" });
     const p=new URL(route.request().url()).pathname.replace('/chapbackend-api','');
     const body=route.request().method()==='POST'?route.request().postDataJSON():{};
     let value;

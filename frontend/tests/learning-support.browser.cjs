@@ -42,6 +42,7 @@ function wave() {
     };
   });
   await page.route('**/chapbackend-api/**', async route => {
+    if (new URL(route.request().url()).pathname === "/chapbackend-api/usage/events") return route.fulfill({ contentType: "application/json", body: "{\"accepted\":true}" });
     const url = new URL(route.request().url());
     const endpoint = url.pathname.replace('/chapbackend-api', '');
     let body = {};

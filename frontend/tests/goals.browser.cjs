@@ -9,6 +9,7 @@ const origin = process.env.LEARNING_TEST_ORIGIN || 'http://localhost:3010';
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.route('**/chapbackend-api/**', async route => {
+    if (new URL(route.request().url()).pathname === "/chapbackend-api/usage/events") return route.fulfill({ contentType: "application/json", body: "{\"accepted\":true}" });
     const endpoint = new URL(route.request().url()).pathname;
     let result;
     if (endpoint.endsWith('/me')) result = { chapp_user_id: 'goal-owner' };

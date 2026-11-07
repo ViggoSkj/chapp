@@ -218,3 +218,12 @@ Classic, Compact, Focus, Split and Immersive. The choice stays in the current
 browser and changes only presentation. Keep the current prompt, draft,
 review and daily-plan position while switching. Stack Split on narrow screens.
 
+## Saved usage for optimization (2026-11-07)
+
+The owner requested usage information for optimizing the app. Signed-in pages
+record fixed page and action names, layout choices, coarse viewport size and
+Web Vitals through the existing Next.js hook. Reports at /usage require the
+existing Chapp administrator permission and support JSON export. Tab sessions
+use a random sessionStorage identifier. The measurement schema carries counts
+and performance values independently of learning content.
+

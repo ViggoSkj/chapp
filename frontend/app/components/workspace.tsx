@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AccountMenu } from "./account";
+import { UsageObserver } from "./usage-observer";
 import { Icon } from "./icons";
 import { sections } from "../lib/demo";
 
@@ -18,6 +19,7 @@ const navigationGroups = [
   ] },
   { label: "Manage", items: [
     { id: "connections", title: "Connections", icon: "plug" },
+    { id: "usage", title: "Usage", icon: "chart" },
     { id: "reviews", title: "Anki reviews", icon: "cards", demo: true },
   ] },
 ];
@@ -42,7 +44,7 @@ function NavigationLink({ item, pathname }: {
 export function Workspace({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isDemoPage = ["/reviews"].includes(pathname);
-  return <div className="workspace">
+  return <div className="workspace"><UsageObserver />
     <aside className="sidebar">
       <Link href="/" className="brand" aria-label="Mando home"><span className="brand-mark" lang="zh">文</span><span>mando<span className="brand-dot">.</span><small>A LITTLE EVERY DAY</small></span></Link>
       <div className="workspace-label">MY LEARNING SPACE</div>
