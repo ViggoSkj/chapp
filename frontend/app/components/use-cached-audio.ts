@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { prepareAudioPlayback } from "../lib/audio-warmup";
+import type { CharacterAudio } from "../lib/character-cache";
 import { learningApi } from "../lib/learning-api";
 import { activeAudioCharacter, readAudioTimings } from "../lib/audio-timing";
 
@@ -33,12 +34,12 @@ export function useCachedAudio(contextKey: string) {
   }, [dispose]);
   useEffect(() => () => stop(), [contextKey, stop]);
 
-  async function play(path: string, body: unknown, rate = 1, onEnded?: () => void) {
+  async function play(path: string, body: unknown, rate = 1, onEnded?: () => void, load?: () => Promise<CharacterAudio>) {
     stop(); setPlaybackKey(contextKey); setLoading(true); setError("");
     const ticket = sequence.current;
     const controller = new AbortController(); request.current = controller;
     try {
-      const sound = await learningApi<{ content_type: string; audio_data: string; timings?: unknown }>(path, body, controller.signal);
+      const sound = await (load ? load() : learningApi<CharacterAudio>(path, body, controller.signal));
       if (ticket !== sequence.current) return false;
       if (!sound.content_type.startsWith("audio/")) throw new Error("The sound response was invalid.");
       const timings = readAudioTimings(sound.timings);

@@ -187,3 +187,19 @@ Replay audio remains a stable control after the first successful playback, inclu
 
 Owner called out Prepare / Try it / Explore as unwanted remaining UI while asking for all feedback to be read. Removed the stage strip across reading, listening and Daily Q&A; this supersedes the earlier exercise-studio stage-card implementation note. Keep answer reveal states and character exploration functional without presenting them as three extra cards. The app tool exposes five Chapp Feedback entries and one desktop-chat screenshot, with no older-page cursor; Prepare/Try it/Explore was supplied in this conversation. Do not claim the tool exposed additional feedback it did not return.
 
+
+
+## Character lookup cache (owner request 2026-11-07)
+
+Show reusable general character meaning and pinyin immediately from a cache;
+load sentence-specific context independently after selection. General definitions
+use a character-only provider context, versioned durable database storage, and
+bounded browser storage. Never cache a phrase explanation as a general definition
+or include page content, actions, Anki expressions, or chat in the shared entry.
+The character endpoint must authorize reveal, ownership and membership before
+reading a cache hit. Audio continues through the shared database-backed sound
+provider; the panel prepares it on opening and reuses bounded learner-scoped
+in-memory audio for replay. Playback stays explicit. Standalone audio can differ
+from a polyphonic character's phrase reading, which the panel labels separately.
+An unseen character still needs one initial generation; later definitions persist
+across sessions and restarts. No bulk paid dictionary warm-up is performed.

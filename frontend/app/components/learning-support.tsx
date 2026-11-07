@@ -6,6 +6,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useAccount } from "./account";
 import { useCachedAudio } from "./use-cached-audio";
 import { helpContext, learningApi, streamLearningReply, type LearningPage, type LearningReply } from "../lib/learning-api";
+import { loadCharacterAudio, loadCharacterDefinition, readCharacterDefinition } from "../lib/character-cache";
 import styles from "./learning-support.module.css";
 
 type Support = { page: LearningPage; actions: string[]; publish: (page: LearningPage) => void;
@@ -33,7 +34,7 @@ export function LearningSupportProvider({ children }: { children: ReactNode }) {
   const value = useMemo(() => ({ page, actions, publish, action, select }), [page, actions, publish, action, select]);
 
   return <SupportContext.Provider value={value}>{children}
-    {selected?.key === contextKey && page.revealed && <CharacterDetails key={contextKey + selected.character}
+    {selected?.key === contextKey && page.revealed && <CharacterDetails key={JSON.stringify([state, learner?.chapp_user_id, contextKey, selected.character])}
       character={selected.character} page={page} actions={actions} close={() => setSelected(null)} action={action} />}
     <LearningChat key={JSON.stringify([state, learner?.chapp_user_id, contextKey])} page={page} actions={actions} open={chatOpen} setOpen={setChatOpen} />
   </SupportContext.Provider>;
@@ -70,7 +71,9 @@ export function ExploreText({ text, enabled, activeIndex = null }: { text: strin
 function CharacterDetails({ character, page, actions, close, action }: {
   character: string; page: LearningPage; actions: string[]; close: () => void; action: (value: string) => void;
 }) {
-  const { state } = useAccount();
+  const { state, learner } = useAccount();
+  const [definition, setDefinition] = useState<LearningReply | null>(() => readCharacterDefinition(character));
+  const [definitionError, setDefinitionError] = useState("");
   const [result, setResult] = useState<LearningReply | null>(null);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
@@ -90,20 +93,40 @@ function CharacterDetails({ character, page, actions, close, action }: {
       .catch(failure => { if (!controller.signal.aborted) setError(failure instanceof Error ? failure.message : "Character details are unavailable."); });
     return () => controller.abort();
   }, [state, retry]);
+  useEffect(() => {
+    if (state !== "signed-in" || !learner) return;
+    const controller = new AbortController();
+    loadCharacterDefinition(learner.chapp_user_id, character, payload.current)
+      .then(value => { if (!controller.signal.aborted) setDefinition(value); })
+      .catch(failure => { if (!controller.signal.aborted) setDefinitionError(failure instanceof Error ? failure.message : "Character meaning is unavailable."); });
+    return () => controller.abort();
+  }, [state, learner, character, retry]);
+  useEffect(() => {
+    if (state !== "signed-in" || !learner) return;
+    // Fetch only: playback remains an explicit user action, independent of either AI reply.
+    void loadCharacterAudio(learner.chapp_user_id, character, payload.current).catch(() => {});
+  }, [state, learner, character, retry]);
 
   return <section className={styles.characterCard} role="dialog" aria-label={"About " + character}
     onKeyDown={event => { if (event.key === "Escape") close(); }}>
     <div className={styles.cardHeading}><div><span className={styles.eyebrow}>EXPLORE A CHARACTER</span><h2 lang="zh-Hans"><span className={sound.spokenText === character && sound.activeCharacterIndex === 0 ? styles.speaking : undefined} data-speaking={sound.spokenText === character && sound.activeCharacterIndex === 0 ? "true" : undefined}>{character}</span></h2></div>
       <button ref={closeButton} type="button" className={styles.close} onClick={close} aria-label="Close character details">×</button></div>
     {state !== "signed-in" ? <p><Link href="/login">Sign in</Link> to see meanings and hear this character.</p> : <>
-      {result?.pronunciation && <p className={styles.pinyin} lang={result.pronunciation.language}>{result.pronunciation.text}</p>}
+      {(definition?.pronunciation ?? result?.pronunciation) && <p className={styles.pinyin}
+        lang={(definition?.pronunciation ?? result?.pronunciation)!.language}>{(definition?.pronunciation ?? result?.pronunciation)!.text}</p>}
+      <div aria-live="polite"><p>{definition?.reply.text ?? (definitionError || "Loading general meaning and pronunciation…")}</p></div>
       <button type="button" className={styles.secondary} disabled={sound.loading} onClick={async () => {
         if (sound.playing) { sound.stop(); return; }
-        if (await sound.play("/learning-help/sound", payload.current)) action("Played character " + character);
+        if (learner && await sound.play("/learning-help/sound", payload.current, 1, undefined,
+          () => loadCharacterAudio(learner.chapp_user_id, character, payload.current))) action("Played character " + character);
       }}>{sound.loading ? "Loading audio…" : sound.playing ? "Stop audio" : "◖ Listen to character"}</button>
-      <div aria-live="polite">{error ? <><p role="alert">{error}</p><button className={styles.secondary} onClick={() => { setError(""); setRetry(value => value + 1); }}>Try again</button></>
-        : <p lang={result?.reply.language ?? "en"}>{result?.reply.text ?? "Finding meaning and pronunciation…"}</p>}</div>
-      {sound.error && <p role="alert">{sound.error}</p>}<small>AI explanation · pronunciation can depend on the phrase.</small>
+      <h3>In this phrase</h3>
+      <div aria-live="polite">{error ? <><p role="alert">{error}</p><button className={styles.secondary} onClick={() => { setError(""); setDefinitionError(""); setRetry(value => value + 1); }}>Try again</button></>
+        : <p lang={result?.reply.language ?? "en"}>{result?.reply.text ?? "Loading phrase context…"}</p>}</div>
+      {definitionError && !error && <button className={styles.secondary} onClick={() => { setDefinitionError(""); setRetry(value => value + 1); }}>Retry general meaning</button>}
+      {result?.pronunciation && definition?.pronunciation && result.pronunciation.text !== definition.pronunciation.text &&
+        <p>Reading in this phrase: <span lang={result.pronunciation.language}>{result.pronunciation.text}</span></p>}
+      {sound.error && <p role="alert">{sound.error}</p>}<small>AI general definition · AI phrase context · audio uses the character’s standalone reading.</small>
     </>}
   </section>;
 }
